@@ -1,24 +1,4 @@
 services:
-  traefik:
-    image: traefik:v2.10
-    container_name: traefik
-    command:
-      - "--api.insecure=false"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.grpc.address=:50051"
-      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
-      - "--certificatesresolvers.myresolver.acme.email=mechanickslol@gmail.com"
-    ports:
-      - "80:80"
-      - "443:443"
-      - "50051:50051"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - traefik_data:/etc/traefik
-    networks:
-      - traefik_network
-    restart: unless-stopped
 
   grpc-nws:
     container_name: grpc-nws
