@@ -3,12 +3,28 @@ import { Ack, StreamData, StreamDataClient, StreamRequest } from '../proto/twitc
 import { EventEmitter } from 'events';
 
 export class StreamService {
+  private static instance: StreamService;
   private streamBuffer: StreamData[] = [];
-  private readonly streamEmitter = new EventEmitter();
+  private readonly streamEmitter: EventEmitter;
   private readonly MAX_BUFFER_SIZE = 100; // Garde les 100 derniers frames
+
+  private constructor() {
+    this.streamEmitter = new EventEmitter();
+    // Augmenter la limite d'écouteurs si nécessaire
+    this.streamEmitter.setMaxListeners(100);
+  }
+
+  public static getInstance(): StreamService {
+    if (!StreamService.instance) {
+      StreamService.instance = new StreamService();
+    }
+    return StreamService.instance;
+  }
 
   async sendStream(call: ServerDuplexStream<StreamData, Ack>): Promise<void> {
     try {
+      console.log('New streamer connected');
+      
       // Quand on reçoit des données du streamer
       call.on('data', async (data: StreamData) => {
         // Stocke la frame dans le buffer
@@ -20,6 +36,7 @@ export class StreamService {
         }
 
         // Émet la frame pour tous les viewers
+        console.log(`Emitting frame to ${this.streamEmitter.listenerCount('newFrame')} viewers`);
         this.streamEmitter.emit('newFrame', data);
 
         // Confirme la réception au streamer
@@ -30,6 +47,7 @@ export class StreamService {
       });
 
       call.on('end', () => {
+        console.log('Streamer disconnected');
         call.end();
       });
 
@@ -41,7 +59,10 @@ export class StreamService {
 
   async getStream(call: ServerWritableStream<StreamRequest, StreamDataClient>): Promise<void> {
     try {
+      console.log('New viewer connected');
+      
       // Envoie le buffer existant au nouveau viewer
+      console.log(`Sending ${this.streamBuffer.length} buffered frames`);
       for (const frame of this.streamBuffer) {
         call.write({
           ts: frame.ts,
@@ -52,6 +73,7 @@ export class StreamService {
 
       // Écoute les nouvelles frames et les envoie au viewer
       const newFrameListener = (frame: StreamData) => {
+        console.log('Sending new frame to viewer');
         call.write({
           ts: frame.ts,
           audio: frame.audio,
@@ -63,6 +85,7 @@ export class StreamService {
 
       // Nettoie le listener quand le viewer se déconnecte
       call.on('end', () => {
+        console.log('Viewer disconnected');
         this.streamEmitter.off('newFrame', newFrameListener);
         call.end();
       });

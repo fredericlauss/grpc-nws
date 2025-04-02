@@ -1,6 +1,7 @@
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
 import { config } from './config';
+import { StreamService } from './services/streamService';
 
 const packageDefinition = protoLoader.loadSync('./src/proto/twitchy.proto', {
   keepCase: true,
@@ -12,16 +13,16 @@ const packageDefinition = protoLoader.loadSync('./src/proto/twitchy.proto', {
 
 const proto = (grpc.loadPackageDefinition(
   packageDefinition
-) as unknown as {
-    twitchy: {
-      Twitchy: grpc.ServiceDefinition<grpc.UntypedServiceImplementation>
-    }
-  }).twitchy;
+) as any).twitchy;
 
 function main() {
   const server = new grpc.Server();
+  const streamService = StreamService.getInstance();
   
-
+  server.addService(proto.Twitchy.service, {
+    sendStream: (call: any) => streamService.sendStream(call),
+    getStream: (call: any) => streamService.getStream(call)
+  });
 
   server.bindAsync(
     `0.0.0.0:${config.port}`,
