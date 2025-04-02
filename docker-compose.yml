@@ -1,0 +1,70 @@
+services:
+  traefik:
+    image: traefik:v2.10
+    container_name: traefik
+    command:
+      - "--api.insecure=false"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.grpc.address=:50051"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=mechanickslol@gmail.com"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "50051:50051"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_data:/etc/traefik
+    networks:
+      - traefik_network
+    restart: unless-stopped
+
+  grpc-nws:
+    container_name: grpc-nws
+    build:
+      context: .
+      dockerfile: Dockerfile
+    expose:
+      - "50051"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run build && npm run start
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "50051"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.grpc.routers.grpc.rule=Host(`grpc.sutcorp-industry.com`)"
+      - "traefik.grpc.routers.grpc.entrypoints=grpc"
+      - "traefik.grpc.routers.grpc.tls=true"
+      - "traefik.grpc.routers.grpc.tls.certresolver=myresolver"
+      - "traefik.grpc.services.grpc.loadbalancer.server.port=50051"
+    networks:
+      - traefik_network
+
+networks:
+  traefik_network:
+    driver: bridge
+
+volumes:
+  traefik_data:
