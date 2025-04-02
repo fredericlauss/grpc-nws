@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package twitchy;
+
+service Twitchy {
+
+  rpc SendStream (stream StreamData) returns (stream Ack) {}
+
+  rpc GetStream (StreamRequest) returns (stream StreamDataClient) {}
+
+}
+
+message StreamData {
+  uint64 ts = 1;
+  bytes audio = 2;
+  bytes video = 3;
+}
+
+message Ack {
+  uint32 size = 1;
+  int32 error = 2;
+}
+
+message StreamRequest {
+  int64 dummy = 1;
+}
+
+message StreamDataClient {
+  uint64 ts = 1;
+  bytes audio = 2;
+  bytes video = 3;
+}
