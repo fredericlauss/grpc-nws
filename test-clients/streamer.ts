@@ -24,7 +24,7 @@ async function main() {
     stream.write(frame);
     console.log(`Sent frame ${frameCount}`);
     frameCount++;
-  }, 1000); // Envoie une frame chaque seconde
+  }); // Envoie une frame chaque seconde
 
   // Réception des acquittements
   stream.on('data', (ack) => {
