@@ -1,50 +1,64 @@
-services:
+version: '3.9'
 
-  grpc-nws:
-    container_name: grpc-nws
+services:
+  grpc-server:
+    container_name: grpc-server
     build:
       context: .
       dockerfile: Dockerfile
-    expose:
-      - "50051"
+    ports:
+      - "50051:50051"
     volumes:
       - .:/app
       - /app/node_modules
-    command: npm run build && npm run start
+    command: >
+      sh -c "npm run proto:gen && npm run build && npm run start"
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=development
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "50051"]
       interval: 30s
       timeout: 10s
       retries: 3
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 1G
-        reservations:
-          cpus: '0.5'
-          memory: 512M
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.grpc.routers.grpc.rule=Host(`grpc.sutcorp-industry.com`)"
-      - "traefik.grpc.routers.grpc.entrypoints=websecure"
-      - "traefik.grpc.routers.grpc.tls=true"
-      - "traefik.grpc.routers.grpc.tls.certresolver=myresolver"
-      - "traefik.grpc.services.grpc.loadbalancer.server.port=50051"
     networks:
-      - shared-network
+      - grpc-network
+
+  streamer-client:
+    container_name: streamer-client
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run start:streamer
+    environment:
+      - NODE_ENV=development
+    depends_on:
+      - grpc-server
+    networks:
+      - grpc-network
+
+  viewer-client:
+    container_name: viewer-client
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run start:viewer
+    environment:
+      - NODE_ENV=development
+    depends_on:
+      - grpc-server
+    networks:
+      - grpc-network
 
 networks:
-  shared-network:
-    external: true
+  grpc-network:
+    driver: bridge
 
 volumes:
   traefik_data:
