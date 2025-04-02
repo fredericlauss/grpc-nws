@@ -3,9 +3,6 @@ FROM node:20-alpine as builder
 
 WORKDIR /app
 
-# Installation de protoc
-RUN apk add --no-cache protobuf protobuf-dev
-
 # Copie des fichiers de configuration
 COPY package*.json ./
 COPY tsconfig.json ./
@@ -16,7 +13,7 @@ RUN npm install
 # Copie du code source
 COPY . .
 
-# Génération des types proto et build
+# Build
 RUN npm run build
 
 # Production stage
@@ -30,6 +27,6 @@ COPY --from=builder /app/src ./src
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
 
-EXPOSE 3000
+EXPOSE 50051
 
 CMD ["npm", "run", "start"] 
