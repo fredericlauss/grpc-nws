@@ -1,69 +1,10 @@
-version: '3.9'
-
 services:
   grpc-server:
-    container_name: grpc-server
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.grpc
     ports:
-      - "50051:50051"
-    volumes:
-      - .:/app
-      - /app/node_modules
-    command: >
-      sh -c "npm run proto:gen && npm run build && npm run start"
+      - "3000:3000"
     environment:
-      - NODE_ENV=development
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "50051"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    networks:
-      - grpc-network
-
-  streamer-client:
-    container_name: streamer-client
-    build:
-      context: .
-      dockerfile: Dockerfile
-    volumes:
-      - .:/app
-      - /app/node_modules
-    command: npm run start:streamer
-    environment:
-      - NODE_ENV=development
-    depends_on:
-      - grpc-server
-    networks:
-      - grpc-network
-
-  viewer-client:
-    container_name: viewer-client
-    build:
-      context: .
-      dockerfile: Dockerfile
-    volumes:
-      - .:/app
-      - /app/node_modules
-    command: npm run start:viewer
-    environment:
-      - NODE_ENV=development
-    depends_on:
-      - grpc-server
-    networks:
-      - grpc-network
-
-networks:
-  grpc-network:
-    driver: bridge
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.20.0.0/16
-          gateway: 172.20.0.1
-
-volumes:
-  traefik_data:
+      - NODE_ENV=production
+      - PORT=3000
