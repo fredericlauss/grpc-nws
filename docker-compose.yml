@@ -35,16 +35,16 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.grpc.routers.grpc.rule=Host(`grpc.sutcorp-industry.com`)"
-      - "traefik.grpc.routers.grpc.entrypoints=grpc"
+      - "traefik.grpc.routers.grpc.entrypoints=websecure"
       - "traefik.grpc.routers.grpc.tls=true"
       - "traefik.grpc.routers.grpc.tls.certresolver=myresolver"
       - "traefik.grpc.services.grpc.loadbalancer.server.port=50051"
     networks:
-      - traefik_network
+      - shared-network
 
 networks:
-  traefik_network:
-    driver: bridge
+  shared-network:
+    external: true
 
 volumes:
   traefik_data:
