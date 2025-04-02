@@ -1,0 +1,35 @@
+# Build stage
+FROM node:20-alpine as builder
+
+WORKDIR /app
+
+# Installation de protoc
+RUN apk add --no-cache protobuf protobuf-dev
+
+# Copie des fichiers de configuration
+COPY package*.json ./
+COPY tsconfig.json ./
+
+# Installation des dépendances
+RUN npm install
+
+# Copie du code source
+COPY . .
+
+# Génération des types proto et build
+RUN npm run build
+
+# Production stage
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copie des fichiers nécessaires depuis le build stage
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
+
+EXPOSE 3000
+
+CMD ["npm", "run", "start"] 
