@@ -3,16 +3,13 @@ import { TwitchyClient } from '../src/proto/twitchy';
 import { StreamData } from '../src/proto/twitchy';
 
 async function main() {
-  // Création du client
   const client = new TwitchyClient(
     'localhost:3000',
     grpc.credentials.createInsecure()
   );
 
-  // Création du stream bidirectionnel
   const stream = client.sendStream();
 
-  // Simulation d'envoi de frames vidéo/audio
   let frameCount = 0;
   const interval = setInterval(() => {
     const frame: StreamData = {
@@ -24,14 +21,12 @@ async function main() {
     stream.write(frame);
     console.log(`Sent frame ${frameCount}`);
     frameCount++;
-  }, 1000); // Envoie une frame chaque seconde
+  }, 1000);
 
-  // Réception des acquittements
   stream.on('data', (ack) => {
     console.log('Received ack:', ack);
   });
 
-  // Gestion des erreurs
   stream.on('error', (error) => {
     console.error('Stream error:', error);
     clearInterval(interval);

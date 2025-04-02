@@ -6,11 +6,11 @@ export class StreamService {
   private static instance: StreamService;
   private streamBuffer: StreamData[] = [];
   private readonly streamEmitter: EventEmitter;
-  private readonly MAX_BUFFER_SIZE = 100; // Garde les 100 derniers frames
+  private readonly MAX_BUFFER_SIZE = 100;
+  private viewerCount: number = 0;
 
   private constructor() {
     this.streamEmitter = new EventEmitter();
-    // Augmenter la limite d'écouteurs si nécessaire
     this.streamEmitter.setMaxListeners(100);
   }
 
@@ -25,21 +25,16 @@ export class StreamService {
     try {
       console.log('New streamer connected');
       
-      // Quand on reçoit des données du streamer
       call.on('data', async (data: StreamData) => {
-        // Stocke la frame dans le buffer
         this.streamBuffer.push(data);
         
-        // Garde uniquement les N dernières frames
         if (this.streamBuffer.length > this.MAX_BUFFER_SIZE) {
           this.streamBuffer.shift();
         }
 
-        // Émet la frame pour tous les viewers
         console.log(`Emitting frame to ${this.streamEmitter.listenerCount('newFrame')} viewers`);
         this.streamEmitter.emit('newFrame', data);
 
-        // Confirme la réception au streamer
         call.write({
           size: this.streamBuffer.length,
           error: 0
@@ -60,8 +55,8 @@ export class StreamService {
   async getStream(call: ServerWritableStream<StreamRequest, StreamDataClient>): Promise<void> {
     try {
       console.log('New viewer connected');
+      this.viewerCount++;
       
-      // Envoie le buffer existant au nouveau viewer
       console.log(`Sending ${this.streamBuffer.length} buffered frames`);
       for (const frame of this.streamBuffer) {
         call.write({
@@ -71,9 +66,8 @@ export class StreamService {
         });
       }
 
-      // Écoute les nouvelles frames et les envoie au viewer
       const newFrameListener = (frame: StreamData) => {
-        console.log('Sending new frame to viewer');
+        console.log(`Sending new frame to ${this.viewerCount} viewers`);
         call.write({
           ts: frame.ts,
           audio: frame.audio,
@@ -83,9 +77,9 @@ export class StreamService {
 
       this.streamEmitter.on('newFrame', newFrameListener);
 
-      // Nettoie le listener quand le viewer se déconnecte
       call.on('end', () => {
         console.log('Viewer disconnected');
+        this.viewerCount--;
         this.streamEmitter.off('newFrame', newFrameListener);
         call.end();
       });

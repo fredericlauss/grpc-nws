@@ -2,18 +2,15 @@ import * as grpc from '@grpc/grpc-js';
 import { TwitchyClient } from '../src/proto/twitchy';
 
 async function main() {
-  // Création du client avec le même port que le streamer
   const client = new TwitchyClient(
-    'localhost:3000',  // Même port que le streamer
+    'localhost:3000', 
     grpc.credentials.createInsecure()
   );
 
-  // Demande de stream
   const stream = client.getStream({
     dummy: 1
   });
 
-  // Réception des frames avec plus de logs
   stream.on('data', (frame) => {
     console.log('Received frame:', {
       timestamp: frame.ts,
@@ -22,7 +19,6 @@ async function main() {
     });
   });
 
-  // Ajout de plus de logs pour le debug
   stream.on('end', () => {
     console.log('Stream ended');
   });
@@ -31,10 +27,8 @@ async function main() {
     console.error('Stream error:', error);
   });
 
-  // Log pour confirmer que la connexion est établie
   console.log('Viewer connected and waiting for frames...');
 
-  // Cleanup à la fin
   process.on('SIGINT', () => {
     console.log('Shutting down viewer...');
     stream.cancel();

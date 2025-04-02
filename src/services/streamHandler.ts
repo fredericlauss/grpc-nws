@@ -10,10 +10,8 @@ export class StreamHandler {
   }
 
   async handleIncomingStream(data: StreamData): Promise<{ size: number }> {
-    // Stockage des données dans le buffer
     this.streamBuffer.set(Number(data.ts), data);
     
-    // Nettoyage du buffer si nécessaire
     if (this.streamBuffer.size > this.maxBufferSize) {
       const oldestKey = Math.min(...this.streamBuffer.keys());
       this.streamBuffer.delete(oldestKey);
@@ -25,13 +23,12 @@ export class StreamHandler {
   createOutgoingStream(): EventEmitter {
     const emitter = new EventEmitter();
     
-    // Simulation d'envoi de données
     setInterval(() => {
       const data = this.getLatestStreamData();
       if (data) {
         emitter.emit('data', data);
       }
-    }, 33); // ~30fps
+    }, 33); // ~30 FPS
 
     return emitter;
   }
