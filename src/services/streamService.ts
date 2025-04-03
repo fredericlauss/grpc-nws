@@ -1,21 +1,16 @@
 import { ServerDuplexStream, ServerWritableStream } from '@grpc/grpc-js';
 import { Ack, StreamData, StreamDataClient, StreamRequest } from '../proto/twitchy';
-import { EventEmitter } from 'events';
 
 export class StreamService {
   private static instance: StreamService;
   private streamBuffer: StreamData[] = [];
-  private readonly streamEmitter: EventEmitter;
   private readonly MAX_BUFFER_SIZE = 100;
-  private viewerCount: number = 0;
   private isStreaming: boolean = false;
   private frameQueue: StreamData[] = [];
   private isProcessing = false;
+  private viewers: Set<ServerWritableStream<StreamRequest, StreamDataClient>> = new Set();
 
-  private constructor() {
-    this.streamEmitter = new EventEmitter();
-    this.streamEmitter.setMaxListeners(100);
-  }
+  private constructor() {}
 
   public static getInstance(): StreamService {
     if (!StreamService.instance) {
@@ -49,7 +44,27 @@ export class StreamService {
 
   private async broadcastToViewers(data: StreamData): Promise<void> {
     this.logTimeDelta('EMIT', data.ts);
-    this.streamEmitter.emit('newFrame', data);
+    
+    const deadViewers = new Set<ServerWritableStream<StreamRequest, StreamDataClient>>();
+    
+    // Broadcast en parallèle
+    await Promise.all([...this.viewers].map(async (viewer) => {
+      try {
+        await viewer.write({
+          ts: data.ts,
+          audio: data.audio,
+          video: data.video
+        });
+      } catch (error) {
+        console.error('Viewer write error:', error);
+        deadViewers.add(viewer);
+      }
+    }));
+
+    // Nettoyage des viewers morts
+    for (const viewer of deadViewers) {
+      this.viewers.delete(viewer);
+    }
   }
 
   private async processQueue() {
@@ -111,8 +126,10 @@ export class StreamService {
 
   async getStream(call: ServerWritableStream<StreamRequest, StreamDataClient>): Promise<void> {
     try {
-      this.viewerCount++;
+      // Ajouter le viewer à la liste
+      this.viewers.add(call);
       
+      // Envoyer le buffer existant
       for (const frame of this.streamBuffer) {
         call.write({
           ts: frame.ts,
@@ -121,29 +138,19 @@ export class StreamService {
         });
       }
 
-      const newFrameListener = (frame: StreamData) => {
-        call.write({
-          ts: frame.ts,
-          audio: frame.audio,
-          video: frame.video
-        });
-      };
-
-      this.streamEmitter.on('newFrame', newFrameListener);
-
+      // Gestion de la déconnexion
       call.on('end', () => {
-        this.viewerCount--;
-        this.streamEmitter.off('newFrame', newFrameListener);
+        this.viewers.delete(call);
         call.end();
       });
 
       call.on('close', () => {
-        this.viewerCount--;
-        this.streamEmitter.off('newFrame', newFrameListener);
+        this.viewers.delete(call);
       });
 
     } catch (error) {
       console.error('Stream error:', error);
+      this.viewers.delete(call);
       call.emit('error', error);
     }
   }
