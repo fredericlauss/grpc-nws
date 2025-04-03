@@ -9,6 +9,7 @@ export class StreamService {
   private frameQueue: StreamData[] = [];
   private isProcessing = false;
   private viewers: Set<ServerWritableStream<StreamRequest, StreamDataClient>> = new Set();
+  private readonly BATCH_SIZE = 100;
 
   private constructor() {}
 
@@ -46,20 +47,24 @@ export class StreamService {
     this.logTimeDelta('EMIT', data.ts);
     
     const deadViewers = new Set<ServerWritableStream<StreamRequest, StreamDataClient>>();
+    const viewers = [...this.viewers];
     
-    // Broadcast en parallèle
-    await Promise.all([...this.viewers].map(async (viewer) => {
-      try {
-        await viewer.write({
-          ts: data.ts,
-          audio: data.audio,
-          video: data.video
-        });
-      } catch (error) {
-        console.error('Viewer write error:', error);
-        deadViewers.add(viewer);
-      }
-    }));
+    for (let i = 0; i < viewers.length; i += this.BATCH_SIZE) {
+      const batch = viewers.slice(i, i + this.BATCH_SIZE);
+      
+      await Promise.all(batch.map(async (viewer) => {
+        try {
+          await viewer.write({
+            ts: data.ts,
+            audio: data.audio,
+            video: data.video
+          });
+        } catch (error) {
+          console.error('Viewer write error:', error);
+          deadViewers.add(viewer);
+        }
+      }));
+    }
 
     // Nettoyage des viewers morts
     for (const viewer of deadViewers) {
