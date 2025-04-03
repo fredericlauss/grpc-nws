@@ -2,47 +2,38 @@ import { EventEmitter } from 'events';
 import { StreamData, StreamDataClient } from '../proto/twitchy';
 
 export class StreamHandler {
-  private streamBuffer: Map<number, StreamData>;
-  private readonly maxBufferSize = 1000;
+    private streamBuffer: Map<number, StreamData>;
+    private readonly maxBufferSize = 100;
+    private streamEmitter: EventEmitter;
+    private viewerCount: number = 0;
 
-  constructor() {
-    this.streamBuffer = new Map();
-  }
-
-  async handleIncomingStream(data: StreamData): Promise<{ size: number }> {
-    this.streamBuffer.set(Number(data.ts), data);
-    
-    if (this.streamBuffer.size > this.maxBufferSize) {
-      const oldestKey = Math.min(...this.streamBuffer.keys());
-      this.streamBuffer.delete(oldestKey);
+    constructor() {
+        this.streamBuffer = new Map();
+        this.streamEmitter = new EventEmitter();
     }
 
-    return { size: this.streamBuffer.size };
-  }
+    async handleIncomingStream(data: StreamData): Promise<{ size: number }> {
+        this.streamBuffer.set(Number(data.ts), data);
 
-  createOutgoingStream(): EventEmitter {
-    const emitter = new EventEmitter();
-    
-    setInterval(() => {
-      const data = this.getLatestStreamData();
-      if (data) {
-        emitter.emit('data', data);
-      }
-    }, 33); // ~30 FPS
+        if (this.streamBuffer.size > this.maxBufferSize) {
+            const oldestKey = Math.min(...this.streamBuffer.keys());
+            this.streamBuffer.delete(oldestKey);
+        }
 
-    return emitter;
-  }
+        return { size: this.streamBuffer.size };
+    }
 
-  private getLatestStreamData(): StreamDataClient | null {
-    if (this.streamBuffer.size === 0) return null;
-    
-    const latestKey = Math.max(...this.streamBuffer.keys());
-    const latestData = this.streamBuffer.get(latestKey);
-    
-    return latestData ? {
-      ts: latestData.ts,
-      audio: latestData.audio,
-      video: latestData.video
-    } : null;
-  }
+    emitNewFrame(data: StreamData) {
+        this.streamEmitter.emit('newFrame', data);
+    }
+
+    addViewer(listener: (frame: StreamData) => void) {
+        this.viewerCount++;
+        this.streamEmitter.on('newFrame', listener);
+    }
+
+    removeViewer(listener: (frame: StreamData) => void) {
+        this.viewerCount = Math.max(0, this.viewerCount - 1);
+        this.streamEmitter.off('newFrame', listener);
+    }
 }

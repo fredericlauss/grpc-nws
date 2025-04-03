@@ -1,98 +1,85 @@
 import { ServerDuplexStream, ServerWritableStream } from '@grpc/grpc-js';
 import { Ack, StreamData, StreamDataClient, StreamRequest } from '../proto/twitchy';
 import { EventEmitter } from 'events';
+import { StreamHandler } from './streamHandler';
 
 export class StreamService {
-  private static instance: StreamService;
-  private streamBuffer: StreamData[] = [];
-  private readonly streamEmitter: EventEmitter;
-  private readonly MAX_BUFFER_SIZE = 100;
-  private viewerCount: number = 0;
+    private static instance: StreamService;
+    private streams: Map<string, StreamHandler>;
 
-  private constructor() {
-    this.streamEmitter = new EventEmitter();
-    this.streamEmitter.setMaxListeners(100);
-  }
-
-  public static getInstance(): StreamService {
-    if (!StreamService.instance) {
-      StreamService.instance = new StreamService();
+    private constructor() {
+        this.streams = new Map();
     }
-    return StreamService.instance;
-  }
 
-  async sendStream(call: ServerDuplexStream<StreamData, Ack>): Promise<void> {
-    try {
-      console.log('New streamer connected');
-      
-      call.on('data', async (data: StreamData) => {
-        this.streamBuffer.push(data);
-        
-        if (this.streamBuffer.length > this.MAX_BUFFER_SIZE) {
-          this.streamBuffer.shift();
+    public static getInstance(): StreamService {
+        if (!StreamService.instance) {
+            StreamService.instance = new StreamService();
+        }
+        return StreamService.instance;
+    }
+
+    async sendStream(call: ServerDuplexStream<StreamData, Ack>): Promise<void> {
+        const streamId = call.metadata.get('streamId')[0] as string; // Récupérer le streamId depuis les métadonnées
+        if (!streamId) {
+            console.error('Missing streamId');
+            call.end();
+            return;
         }
 
-        console.log(`Emitting frame to ${this.streamEmitter.listenerCount('newFrame')} viewers`);
-        this.streamEmitter.emit('newFrame', data);
+        if (!this.streams.has(streamId)) {
+            this.streams.set(streamId, new StreamHandler());
+        }
 
-        call.write({
-          size: this.streamBuffer.length,
-          error: 0
+        const streamHandler = this.streams.get(streamId)!;
+        console.log(`New streamer connected on stream ${streamId}`);
+
+        call.on('data', async (data: StreamData) => {
+            const result = await streamHandler.handleIncomingStream(data);
+            streamHandler.emitNewFrame(data);
+
+            call.write({
+                size: result.size,
+                error: 0
+            });
         });
-      });
 
-      call.on('end', () => {
-        console.log('Streamer disconnected');
-        call.end();
-      });
-
-    } catch (error) {
-      console.error('Error in sendStream:', error);
-      call.emit('error', error);
+        call.on('end', () => {
+            console.log(`Streamer disconnected from stream ${streamId}`);
+            this.streams.delete(streamId); // Supprimer le stream une fois le streamer parti
+            call.end();
+        });
     }
-  }
 
-  async getStream(call: ServerWritableStream<StreamRequest, StreamDataClient>): Promise<void> {
-    try {
-      console.log('New viewer connected');
-      this.viewerCount++;
-      
-      console.log(`Sending ${this.streamBuffer.length} buffered frames`);
-      for (const frame of this.streamBuffer) {
-        call.write({
-          ts: frame.ts,
-          audio: frame.audio,
-          video: frame.video
+    async getStream(call: ServerWritableStream<StreamRequest, StreamDataClient>): Promise<void> {
+        const streamId = call.metadata.get('streamId')[0] as string;
+        if (!streamId || !this.streams.has(streamId)) {
+            console.error(`Stream ${streamId} not found`);
+            call.end();
+            return;
+        }
+
+        const streamHandler = this.streams.get(streamId)!;
+        console.log(`New viewer connected to stream ${streamId}`);
+
+        const newFrameListener = (frame: StreamData) => {
+            call.write({
+                ts: frame.ts,
+                audio: frame.audio,
+                video: frame.video
+            });
+        };
+
+        streamHandler.addViewer(newFrameListener);
+
+        call.on('end', () => {
+            console.log(`Viewer disconnected from stream ${streamId}`);
+            streamHandler.removeViewer(newFrameListener);
+            call.end();
         });
-      }
 
-      const newFrameListener = (frame: StreamData) => {
-        console.log(`Sending new frame to ${this.viewerCount} viewers`);
-        call.write({
-          ts: frame.ts,
-          audio: frame.audio,
-          video: frame.video
+        call.on('close', () => {
+            console.log(`Viewer forcibly disconnected from stream ${streamId}`);
+            streamHandler.removeViewer(newFrameListener);
         });
-      };
-
-      this.streamEmitter.on('newFrame', newFrameListener);
-
-      call.on('end', () => {
-        console.log('Viewer disconnected');
-        this.viewerCount--;
-        this.streamEmitter.off('newFrame', newFrameListener);
-        call.end();
-      });
-
-      call.on('close', () => {
-        console.log('Viewer disconnected (close event)');
-        this.viewerCount--;
-        this.streamEmitter.off('newFrame', newFrameListener);
-      });
-
-    } catch (error) {
-      console.error('Error in getStream:', error);
-      call.emit('error', error);
     }
-  }
 }
