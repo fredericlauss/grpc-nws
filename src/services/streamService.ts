@@ -40,14 +40,23 @@ export class StreamService {
           return;
         }
 
-        this.streamBuffer.push(data);
+        const ts = typeof data.ts === 'number' ? 
+          Math.floor(data.ts / 1000) : // Conversion en secondes si c'est un timestamp en ms
+          Math.floor(Date.now() / 1000); // Fallback sur le temps actuel
+
+        const safeData: StreamData = {
+          ...data,
+          ts: ts
+        };
+
+        this.streamBuffer.push(safeData);
         
         while (this.streamBuffer.length > this.MAX_BUFFER_SIZE) {
           this.streamBuffer.shift();
         }
 
-        console.log(`Emitting frame to ${this.streamEmitter.listenerCount('newFrame')} viewers`);
-        this.streamEmitter.emit('newFrame', data);
+        console.log(`Emitting frame, timestamp: ${ts}, buffer size: ${this.streamBuffer.length}`);
+        this.streamEmitter.emit('newFrame', safeData);
 
         call.write({
           size: this.streamBuffer.length,
