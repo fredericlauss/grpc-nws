@@ -33,25 +33,14 @@ export class StreamService {
     }
     console.timeEnd('Frame processing - Size check');
 
-    console.time('Frame processing - Timestamp');
-    const ts = typeof data.ts === 'number' ? 
-      data.ts :
-      Number(process.hrtime.bigint());
-
-    const safeData: StreamData = {
-      ...data,
-      ts: ts
-    };
-    console.timeEnd('Frame processing - Timestamp');
-
     console.time('Frame processing - Buffer');
-    this.streamBuffer.push(safeData);
+    this.streamBuffer.push(data);
     while (this.streamBuffer.length > this.MAX_BUFFER_SIZE) {
       this.streamBuffer.shift();
     }
     console.timeEnd('Frame processing - Buffer');
 
-    return safeData;
+    return data;
   }
 
   private async broadcastToViewers(data: StreamData): Promise<void> {
