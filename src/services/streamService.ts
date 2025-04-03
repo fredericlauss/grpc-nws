@@ -8,6 +8,7 @@ export class StreamService {
   private readonly streamEmitter: EventEmitter;
   private readonly MAX_BUFFER_SIZE = 100;
   private viewerCount: number = 0;
+  private isStreaming: boolean = false;
 
   private constructor() {
     this.streamEmitter = new EventEmitter();
@@ -22,7 +23,15 @@ export class StreamService {
   }
 
   async sendStream(call: ServerDuplexStream<StreamData, Ack>): Promise<void> {
+    if (this.isStreaming) {
+      console.log('A stream is already active. Rejecting new stream request.');
+      call.emit('error', new Error('A stream is already in progress. Only one stream allowed at a time.'));
+      call.end();
+      return;
+    }
+
     try {
+      this.isStreaming = true;
       console.log('New streamer connected');
       
       call.on('data', async (data: StreamData) => {
@@ -43,12 +52,25 @@ export class StreamService {
 
       call.on('end', () => {
         console.log('Streamer disconnected');
+        this.isStreaming = false;
         call.end();
+      });
+
+      call.on('close', () => {
+        console.log('Streamer disconnected');
+        this.isStreaming = false;
+        call.end();
+      });
+
+      call.on('error', (err) => {
+        console.error('Streamer encountered an error:', err);
+        this.isStreaming = false;
       });
 
     } catch (error) {
       console.error('Error in sendStream:', error);
       call.emit('error', error);
+      this.isStreaming = false;
     }
   }
 
