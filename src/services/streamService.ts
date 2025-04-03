@@ -23,15 +23,15 @@ export class StreamService {
   }
 
   private async processFrame(data: StreamData): Promise<StreamData | null> {
-    console.time('Frame processing');
-    
-    // Validation de la taille
+    console.time('Frame processing - Size check');
     if (data.video.length > 1024 * 1024 * 5) {
       console.warn('Frame too large, skipping');
+      console.timeEnd('Frame processing - Size check');
       return null;
     }
+    console.timeEnd('Frame processing - Size check');
 
-    // Traitement du timestamp
+    console.time('Frame processing - Timestamp');
     const ts = typeof data.ts === 'number' ? 
       Math.floor(data.ts / 1000) : 
       Math.floor(Date.now() / 1000);
@@ -40,22 +40,24 @@ export class StreamService {
       ...data,
       ts: ts
     };
+    console.timeEnd('Frame processing - Timestamp');
 
-    // Gestion du buffer
+    console.time('Frame processing - Buffer');
     this.streamBuffer.push(safeData);
     while (this.streamBuffer.length > this.MAX_BUFFER_SIZE) {
       this.streamBuffer.shift();
     }
+    console.timeEnd('Frame processing - Buffer');
 
-    console.timeEnd('Frame processing');
     return safeData;
   }
 
   private async broadcastToViewers(data: StreamData): Promise<void> {
-    console.time('Broadcasting');
-    console.log(`Broadcasting frame, timestamp: ${data.ts}, buffer size: ${this.streamBuffer.length}, frame size: ${data.video.length / 1024 / 1024}MB`);
+    console.time('Broadcasting - Emit');
+    const viewerCount = this.streamEmitter.listenerCount('newFrame');
+    console.log(`Broadcasting frame: ${data.video.length / 1024 / 1024}MB to ${viewerCount} viewers`);
     this.streamEmitter.emit('newFrame', data);
-    console.timeEnd('Broadcasting');
+    console.timeEnd('Broadcasting - Emit');
   }
 
   async sendStream(call: ServerDuplexStream<StreamData, Ack>): Promise<void> {
@@ -71,25 +73,25 @@ export class StreamService {
       console.log('New streamer connected');
       
       call.on('data', async (data: StreamData) => {
-        console.time('Total frame handling');
-        
-        // Traitement de la frame
+        const frameStartTime = Date.now();
+        console.log(`Received frame: ${data.video.length / 1024 / 1024}MB`);
+
         const processedData = await this.processFrame(data);
         if (!processedData) {
-          console.timeEnd('Total frame handling');
           return;
         }
 
-        // Acquittement au streamer
+        console.time('Write response');
         call.write({
           size: this.streamBuffer.length,
           error: 0
         });
+        console.timeEnd('Write response');
 
-        // Diffusion aux viewers
         await this.broadcastToViewers(processedData);
         
-        console.timeEnd('Total frame handling');
+        const totalTime = Date.now() - frameStartTime;
+        console.log(`Total frame time: ${totalTime}ms`);
       });
 
       call.on('end', () => {
