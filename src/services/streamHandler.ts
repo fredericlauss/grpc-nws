@@ -3,7 +3,7 @@ import { StreamData, StreamDataClient } from '../proto/twitchy';
 
 export class StreamHandler {
   private streamBuffer: Map<number, StreamData>;
-  private readonly maxBufferSize = 1000;
+  private readonly maxBufferSize = 10000;
 
   constructor() {
     this.streamBuffer = new Map();
