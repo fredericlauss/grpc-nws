@@ -9,6 +9,8 @@ export class StreamService {
   private readonly MAX_BUFFER_SIZE = 100;
   private viewerCount: number = 0;
   private isStreaming: boolean = false;
+  private frameQueue: StreamData[] = [];
+  private isProcessing = false;
 
   private constructor() {
     this.streamEmitter = new EventEmitter();
@@ -60,6 +62,21 @@ export class StreamService {
     console.timeEnd('Broadcasting - Emit');
   }
 
+  private async processQueue() {
+    if (this.isProcessing) return;
+    this.isProcessing = true;
+
+    while (this.frameQueue.length > 0) {
+      const data = this.frameQueue.shift()!;
+      const processedData = await this.processFrame(data);
+      if (processedData) {
+        await this.broadcastToViewers(processedData);
+      }
+    }
+
+    this.isProcessing = false;
+  }
+
   async sendStream(call: ServerDuplexStream<StreamData, Ack>): Promise<void> {
     if (this.isStreaming) {
       console.log('A stream is already active. Rejecting new stream request.');
@@ -76,11 +93,7 @@ export class StreamService {
         const frameStartTime = Date.now();
         console.log(`Received frame: ${data.video.length / 1024 / 1024}MB`);
 
-        const processedData = await this.processFrame(data);
-        if (!processedData) {
-          return;
-        }
-
+        // ACK immédiat
         console.time('Write response');
         call.write({
           size: this.streamBuffer.length,
@@ -88,10 +101,9 @@ export class StreamService {
         });
         console.timeEnd('Write response');
 
-        await this.broadcastToViewers(processedData);
-        
-        const totalTime = Date.now() - frameStartTime;
-        console.log(`Total frame time: ${totalTime}ms`);
+        // Ajouter à la queue et traiter en arrière-plan
+        this.frameQueue.push(data);
+        this.processQueue().catch(console.error);
       });
 
       call.on('end', () => {
