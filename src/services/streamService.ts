@@ -24,7 +24,15 @@ export class StreamService {
     return StreamService.instance;
   }
 
+  private logTimeDelta(stage: string, frameTs: number) {
+    const now = Date.now() * 1000000; // Conversion en nanosecondes
+    const delta = now - frameTs;
+    console.log(`[${stage}] Delta with frame timestamp: ${delta / 1000000}ms`);
+  }
+
   private async processFrame(data: StreamData): Promise<StreamData | null> {
+    this.logTimeDelta('RECEIVE', data.ts);
+
     console.time('Frame processing - Size check');
     if (data.video.length > 1024 * 1024 * 5) {
       console.warn('Frame too large, skipping');
@@ -40,6 +48,7 @@ export class StreamService {
     }
     console.timeEnd('Frame processing - Buffer');
 
+    this.logTimeDelta('PROCESS', data.ts);
     return data;
   }
 
@@ -47,6 +56,8 @@ export class StreamService {
     console.time('Broadcasting - Emit');
     const viewerCount = this.streamEmitter.listenerCount('newFrame');
     console.log(`Broadcasting frame: ${data.video.length / 1024 / 1024}MB to ${viewerCount} viewers`);
+    
+    this.logTimeDelta('EMIT', data.ts);
     this.streamEmitter.emit('newFrame', data);
     console.timeEnd('Broadcasting - Emit');
   }
