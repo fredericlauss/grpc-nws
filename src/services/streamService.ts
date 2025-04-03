@@ -35,33 +35,48 @@ export class StreamService {
       console.log('New streamer connected');
       
       call.on('data', async (data: StreamData) => {
+        console.time('Total frame processing');
+        
+        console.time('Size check');
         if (data.video.length > 1024 * 1024 * 5) {
           console.warn('Frame too large, skipping');
+          console.timeEnd('Size check');
+          console.timeEnd('Total frame processing');
           return;
         }
+        console.timeEnd('Size check');
 
+        console.time('Timestamp processing');
         const ts = typeof data.ts === 'number' ? 
-          Math.floor(data.ts / 1000) : // Conversion en secondes si c'est un timestamp en ms
-          Math.floor(Date.now() / 1000); // Fallback sur le temps actuel
+          Math.floor(data.ts / 1000) : 
+          Math.floor(Date.now() / 1000);
 
         const safeData: StreamData = {
           ...data,
           ts: ts
         };
+        console.timeEnd('Timestamp processing');
 
+        console.time('Buffer management');
         this.streamBuffer.push(safeData);
-        
         while (this.streamBuffer.length > this.MAX_BUFFER_SIZE) {
           this.streamBuffer.shift();
         }
+        console.timeEnd('Buffer management');
 
-        console.log(`Emitting frame, timestamp: ${ts}, buffer size: ${this.streamBuffer.length}`);
+        console.time('Event emission');
+        console.log(`Emitting frame, timestamp: ${ts}, buffer size: ${this.streamBuffer.length}, frame size: ${data.video.length / 1024 / 1024}MB`);
         this.streamEmitter.emit('newFrame', safeData);
+        console.timeEnd('Event emission');
 
+        console.time('Response write');
         call.write({
           size: this.streamBuffer.length,
           error: 0
         });
+        console.timeEnd('Response write');
+
+        console.timeEnd('Total frame processing');
       });
 
       call.on('end', () => {
