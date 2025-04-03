@@ -5,11 +5,11 @@ export class StreamService {
   private static instance: StreamService;
   private streamBuffer: StreamData[] = [];
   private readonly MAX_BUFFER_SIZE = 100;
+  private readonly BATCH_SIZE = 100;
   private isStreaming: boolean = false;
   private frameQueue: StreamData[] = [];
   private isProcessing = false;
   private viewers: Set<ServerWritableStream<StreamRequest, StreamDataClient>> = new Set();
-  private readonly BATCH_SIZE = 100;
 
   private constructor() {}
 
@@ -129,10 +129,15 @@ export class StreamService {
     }
   }
 
+  private logViewerCount() {
+    const count = this.viewers.size;
+    console.log(`[Viewers] Total: ${count}`);
+  }
+
   async getStream(call: ServerWritableStream<StreamRequest, StreamDataClient>): Promise<void> {
     try {
-      // Ajouter le viewer à la liste
       this.viewers.add(call);
+      this.logViewerCount();
       
       // Envoyer le buffer existant
       for (const frame of this.streamBuffer) {
@@ -143,19 +148,21 @@ export class StreamService {
         });
       }
 
-      // Gestion de la déconnexion
       call.on('end', () => {
         this.viewers.delete(call);
+        this.logViewerCount();
         call.end();
       });
 
       call.on('close', () => {
         this.viewers.delete(call);
+        this.logViewerCount();
       });
 
     } catch (error) {
       console.error('Stream error:', error);
       this.viewers.delete(call);
+      this.logViewerCount();
       call.emit('error', error);
     }
   }
