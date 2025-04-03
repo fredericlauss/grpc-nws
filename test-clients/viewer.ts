@@ -1,9 +1,29 @@
 import * as grpc from '@grpc/grpc-js';
-import { TwitchyClient } from '../src/proto/twitchy';
+import * as protoLoader from '@grpc/proto-loader';
+
+// Types pour les messages
+interface StreamData {
+  ts: string;
+  audio: Buffer;
+  video: Buffer;
+}
 
 async function main() {
-  const client = new TwitchyClient(
-    'localhost:3000', 
+  // Charger le proto avec la même configuration que le serveur
+  const packageDefinition = protoLoader.loadSync('./src/proto/twitchy.proto', {
+    keepCase: true,
+    longs: String,
+    enums: String,
+    defaults: true,
+    oneofs: true
+  });
+
+  const proto = (grpc.loadPackageDefinition(
+    packageDefinition
+  ) as any).twitchy;
+
+  const client = new proto.Twitchy(
+    '51.38.189.96:3000',
     grpc.credentials.createInsecure()
   );
 
@@ -11,20 +31,19 @@ async function main() {
     dummy: 1
   });
 
-  stream.on('data', (frame) => {
+  stream.on('data', (frame: StreamData) => {
     console.log('Received frame:', {
-      timestamp: frame.ts,
-      audioContent: frame.audio.toString(),
-      videoContent: frame.video.toString()
+      ts: frame.ts, // ts sera maintenant une string
+      size: `${(frame.video.length / 1024 / 1024).toFixed(2)}MB`
     });
+  });
+
+  stream.on('error', (error: Error) => {
+    console.error('Stream error:', error);
   });
 
   stream.on('end', () => {
     console.log('Stream ended');
-  });
-
-  stream.on('error', (error) => {
-    console.error('Stream error:', error);
   });
 
   console.log('Viewer connected and waiting for frames...');
@@ -36,6 +55,6 @@ async function main() {
   });
 }
 
-main().catch((error) => {
+main().catch((error: Error) => {
   console.error('Fatal error:', error);
 }); 
