@@ -32,7 +32,6 @@ async function main() {
     clearInterval(interval);
   });
 
-  // Cleanup à la fin
   process.on('SIGINT', () => {
     clearInterval(interval);
     stream.end();

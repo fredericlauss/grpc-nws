@@ -84,6 +84,12 @@ export class StreamService {
         call.end();
       });
 
+      call.on('close', () => {
+        console.log('Viewer disconnected (close event)');
+        this.viewerCount--;
+        this.streamEmitter.off('newFrame', newFrameListener);
+      });
+
     } catch (error) {
       console.error('Error in getStream:', error);
       call.emit('error', error);
