@@ -25,41 +25,31 @@ export class StreamService {
   }
 
   private logTimeDelta(stage: string, frameTs: number) {
-    const now = Date.now() * 1000000; // Conversion en nanosecondes
+    const now = Date.now() * 1000000;
     const delta = now - frameTs;
-    console.log(`[${stage}] Delta with frame timestamp: ${delta / 1000000}ms`);
+    console.log(`[${stage}] Delta: ${delta / 1000000}ms`);
   }
 
   private async processFrame(data: StreamData): Promise<StreamData | null> {
     this.logTimeDelta('RECEIVE', data.ts);
 
-    console.time('Frame processing - Size check');
     if (data.video.length > 1024 * 1024 * 5) {
       console.warn('Frame too large, skipping');
-      console.timeEnd('Frame processing - Size check');
       return null;
     }
-    console.timeEnd('Frame processing - Size check');
 
-    console.time('Frame processing - Buffer');
     this.streamBuffer.push(data);
     while (this.streamBuffer.length > this.MAX_BUFFER_SIZE) {
       this.streamBuffer.shift();
     }
-    console.timeEnd('Frame processing - Buffer');
 
     this.logTimeDelta('PROCESS', data.ts);
     return data;
   }
 
   private async broadcastToViewers(data: StreamData): Promise<void> {
-    console.time('Broadcasting - Emit');
-    const viewerCount = this.streamEmitter.listenerCount('newFrame');
-    console.log(`Broadcasting frame: ${data.video.length / 1024 / 1024}MB to ${viewerCount} viewers`);
-    
     this.logTimeDelta('EMIT', data.ts);
     this.streamEmitter.emit('newFrame', data);
-    console.timeEnd('Broadcasting - Emit');
   }
 
   private async processQueue() {
@@ -79,52 +69,41 @@ export class StreamService {
 
   async sendStream(call: ServerDuplexStream<StreamData, Ack>): Promise<void> {
     if (this.isStreaming) {
-      console.log('A stream is already active. Rejecting new stream request.');
-      call.emit('error', new Error('A stream is already in progress. Only one stream allowed at a time.'));
+      call.emit('error', new Error('A stream is already in progress'));
       call.end();
       return;
     }
 
     try {
       this.isStreaming = true;
-      console.log('New streamer connected');
       
       call.on('data', async (data: StreamData) => {
-        const frameStartTime = Date.now();
-        console.log(`Received frame: ${data.video.length / 1024 / 1024}MB`);
-
-        // ACK immédiat
-        console.time('Write response');
         call.write({
           size: this.streamBuffer.length,
           error: 0
         });
-        console.timeEnd('Write response');
 
-        // Ajouter à la queue et traiter en arrière-plan
         this.frameQueue.push(data);
         this.processQueue().catch(console.error);
       });
 
       call.on('end', () => {
-        console.log('Streamer disconnected');
         this.isStreaming = false;
         call.end();
       });
 
       call.on('close', () => {
-        console.log('Streamer disconnected');
         this.isStreaming = false;
         call.end();
       });
 
       call.on('error', (err) => {
-        console.error('Streamer encountered an error:', err);
+        console.error('Stream error:', err);
         this.isStreaming = false;
       });
 
     } catch (error) {
-      console.error('Error in sendStream:', error);
+      console.error('Fatal error:', error);
       call.emit('error', error);
       this.isStreaming = false;
     }
@@ -132,10 +111,8 @@ export class StreamService {
 
   async getStream(call: ServerWritableStream<StreamRequest, StreamDataClient>): Promise<void> {
     try {
-      console.log('New viewer connected');
       this.viewerCount++;
       
-      console.log(`Sending ${this.streamBuffer.length} buffered frames`);
       for (const frame of this.streamBuffer) {
         call.write({
           ts: frame.ts,
@@ -145,7 +122,6 @@ export class StreamService {
       }
 
       const newFrameListener = (frame: StreamData) => {
-        console.log(`Sending new frame to ${this.viewerCount} viewers`);
         call.write({
           ts: frame.ts,
           audio: frame.audio,
@@ -156,20 +132,18 @@ export class StreamService {
       this.streamEmitter.on('newFrame', newFrameListener);
 
       call.on('end', () => {
-        console.log('Viewer disconnected');
         this.viewerCount--;
         this.streamEmitter.off('newFrame', newFrameListener);
         call.end();
       });
 
       call.on('close', () => {
-        console.log('Viewer disconnected (close event)');
         this.viewerCount--;
         this.streamEmitter.off('newFrame', newFrameListener);
       });
 
     } catch (error) {
-      console.error('Error in getStream:', error);
+      console.error('Stream error:', error);
       call.emit('error', error);
     }
   }
