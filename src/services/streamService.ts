@@ -35,8 +35,8 @@ export class StreamService {
 
     console.time('Frame processing - Timestamp');
     const ts = typeof data.ts === 'number' ? 
-      Math.floor(data.ts / 1000) : 
-      Math.floor(Date.now() / 1000);
+      data.ts :
+      Number(process.hrtime.bigint());
 
     const safeData: StreamData = {
       ...data,
