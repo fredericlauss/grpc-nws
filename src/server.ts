@@ -29,7 +29,7 @@ function main() {
     grpc.ServerCredentials.createInsecure(),
     (error, port) => {
       if (error) {
-        console.error(`Server failed to start: ${error}`);
+        console.error(`Serverr failed to start: ${error}`);
         return;
       }
       server.start();
