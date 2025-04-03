@@ -6,7 +6,7 @@ export class StreamService {
   private static instance: StreamService;
   private streamBuffer: StreamData[] = [];
   private readonly streamEmitter: EventEmitter;
-  private readonly MAX_BUFFER_SIZE = 100;
+  private readonly MAX_BUFFER_SIZE = 10000;
   private viewerCount: number = 0;
   private isStreaming: boolean = false;
 
@@ -35,9 +35,14 @@ export class StreamService {
       console.log('New streamer connected');
       
       call.on('data', async (data: StreamData) => {
+        if (data.video.length > 1024 * 1024 * 5) {
+          console.warn('Frame too large, skipping');
+          return;
+        }
+
         this.streamBuffer.push(data);
         
-        if (this.streamBuffer.length > this.MAX_BUFFER_SIZE) {
+        while (this.streamBuffer.length > this.MAX_BUFFER_SIZE) {
           this.streamBuffer.shift();
         }
 
