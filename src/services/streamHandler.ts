@@ -20,19 +20,6 @@ export class StreamHandler {
     return { size: this.streamBuffer.size };
   }
 
-  createOutgoingStream(): EventEmitter {
-    const emitter = new EventEmitter();
-    
-    setInterval(() => {
-      const data = this.getLatestStreamData();
-      if (data) {
-        emitter.emit('data', data);
-      }
-    }, 33); // ~30 FPS
-
-    return emitter;
-  }
-
   private getLatestStreamData(): StreamDataClient | null {
     if (this.streamBuffer.size === 0) return null;
     
