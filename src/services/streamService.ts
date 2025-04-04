@@ -17,7 +17,9 @@ export class StreamService {
     private streamBuffers: Map<number, StreamData[]> = new Map();
     private readonly MAX_BUFFER_SIZE = 100;
     private readonly BATCH_SIZE = 100;
-    private isStreaming: boolean = false;
+    private readonly STREAM_TIMEOUT = 3 * 60 * 1000;
+    private streamTimeouts: Map<number, NodeJS.Timeout> = new Map();
+    private activeStreams: Set<number> = new Set();
     private frameQueues: Map<number, StreamData[]> = new Map();
     private processingStreams: Set<number> = new Set();
     private viewers: Map<number, Set<ServerWritableStream<StreamInfo, StreamData>>> = new Map();
@@ -138,50 +140,96 @@ export class StreamService {
         }
     }
 
+    private startStreamTimeout(streamId: number) {
+        // Ne pas démarrer le timeout si le stream est actif
+        if (this.activeStreams.has(streamId)) {
+            console.log(`Stream ${streamId} actif, pas de timeout`);
+            return;
+        }
 
-async newStream(
-  call: ServerUnaryCall<StreamInfo, StreamValidation>
-): Promise<StreamValidation> {
-  console.log('Traitement de la demande de stream:', call.request);
-  
-  // Générer un nouveau streamId, ignorer celui du client
-  const streamId = this.generateStreamId();
-  console.log('Nouveau streamId généré:', streamId);
+        this.clearStreamTimeout(streamId);
+        
+        const timeout = setTimeout(() => {
+            if (!this.activeStreams.has(streamId)) {
+                console.log(`Stream ${streamId} inactif pendant ${this.STREAM_TIMEOUT/1000}s, nettoyage...`);
+                this.cleanupStream(streamId);
+            }
+        }, this.STREAM_TIMEOUT);
 
-  // Créer une nouvelle StreamInfo avec notre streamId
-  const streamInfo = {
-    ...call.request,
-    streamId: streamId  // Remplacer l'ID du client par le nôtre
-  };
-  
-  // Stocker les infos du stream
-  this.streamInfoMap.set(streamId, streamInfo);
-  this.authorizedStreams.add(streamId);
+        this.streamTimeouts.set(streamId, timeout);
+    }
 
-  console.log('Streams autorisés:', Array.from(this.authorizedStreams));
+    private clearStreamTimeout(streamId: number) {
+        const existingTimeout = this.streamTimeouts.get(streamId);
+        if (existingTimeout) {
+            clearTimeout(existingTimeout);
+            this.streamTimeouts.delete(streamId);
+        }
+    }
 
-  return {
-    streamId: streamId,  // Retourner notre ID
-    error: ProtoError.error_undefined,
-    video: [call.request.videoquality!],
-    audio: [call.request.audioquality!]
-  };
-}
+    private cleanupStream(streamId: number) {
+        console.log(`Nettoyage du stream ${streamId}`);
+        this.authorizedStreams.delete(streamId);
+        this.streamInfoMap.delete(streamId);
+        this.streamBuffers.delete(streamId);
+        this.frameQueues.delete(streamId);
+        this.clearStreamTimeout(streamId);
+    }
+
+    async newStream(
+        call: ServerUnaryCall<StreamInfo, StreamValidation>
+    ): Promise<StreamValidation> {
+        console.log('Traitement de la demande de stream:', call.request);
+        
+        // Générer un nouveau streamId, ignorer celui du client
+        const streamId = this.generateStreamId();
+        console.log('Nouveau streamId généré:', streamId);
+
+        // Créer une nouvelle StreamInfo avec notre streamId
+        const streamInfo = {
+            ...call.request,
+            streamId: streamId  // Remplacer l'ID du client par le nôtre
+        };
+        
+        // Stocker les infos du stream
+        this.streamInfoMap.set(streamId, streamInfo);
+        this.authorizedStreams.add(streamId);
+
+        console.log('Streams autorisés:', Array.from(this.authorizedStreams));
+
+        // Démarrer le timeout
+        this.startStreamTimeout(streamId);
+
+        return {
+            streamId: streamId,
+            error: ProtoError.error_undefined,
+            video: [call.request.videoquality!],
+            audio: [call.request.audioquality!]
+        };
+    }
 
     async sendStream(call: ServerDuplexStream<StreamData, Ack>): Promise<void> {
         const firstFrame = await new Promise<StreamData>((resolve) => {
             call.once('data', resolve);
         });
 
-        if (!this.authorizedStreams.has(firstFrame.streamId)) {
+        const streamId = firstFrame.streamId;
+
+        if (!this.authorizedStreams.has(streamId)) {
             call.emit('error', new Error('Unauthorized stream ID'));
             call.end();
             return;
         }
 
+        if (this.activeStreams.has(streamId)) {
+            call.emit('error', new Error('Stream already active'));
+            call.end();
+            return;
+        }
+
         try {
-            this.isStreaming = true;
-            const streamId = firstFrame.streamId;
+            this.activeStreams.add(streamId);
+            console.log(`Stream ${streamId} démarré. Streams actifs:`, Array.from(this.activeStreams));
 
             call.on('data', async (data: StreamData) => {
                 call.write({
@@ -194,29 +242,29 @@ async newStream(
             });
 
             call.on('end', () => {
-                this.isStreaming = false;
+                this.activeStreams.delete(streamId);
                 this.authorizedStreams.delete(streamId);
-                console.log(`Stream ${streamId} terminé`);
+                console.log(`Stream ${streamId} terminé. Streams actifs:`, Array.from(this.activeStreams));
                 call.end();
             });
 
             call.on('close', () => {
-                this.isStreaming = false;
+                this.activeStreams.delete(streamId);
                 this.authorizedStreams.delete(streamId);
-                console.log(`Stream ${streamId} fermé`);
+                console.log(`Stream ${streamId} fermé. Streams actifs:`, Array.from(this.activeStreams));
             });
 
             call.on('error', (err) => {
-                console.error('Stream error:', err);
-                this.isStreaming = false;
+                console.error(`Stream ${streamId} error:`, err);
+                this.activeStreams.delete(streamId);
                 this.authorizedStreams.delete(streamId);
             });
 
         } catch (error) {
-            console.error('Fatal error:', error);
+            console.error(`Fatal error for stream ${streamId}:`, error);
+            this.activeStreams.delete(streamId);
+            this.authorizedStreams.delete(streamId);
             call.emit('error', error);
-            this.isStreaming = false;
-            this.authorizedStreams.delete(firstFrame.streamId);
         }
     }
 

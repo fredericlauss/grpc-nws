@@ -15,7 +15,7 @@ async function main() {
   const stream = client.getStream({
     videoquality: undefined,
     audioquality: undefined,
-    streamId: 1144611655 // Assurez-vous que c'est le même ID que le streamer
+    streamId: 3955076420 // Assurez-vous que c'est le même ID que le streamer
   });
 
   stream.on('data', (frame: StreamData) => {
