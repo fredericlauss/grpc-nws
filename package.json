@@ -10,7 +10,8 @@
     "start:server": "ts-node src/server.ts",
     "start:streamer": "ts-node test-clients/streamer.ts",
     "start:viewer": "ts-node test-clients/viewer.ts",
-    "start:liststream": "ts-node test-clients/listStream.ts" 
+    "start:liststream": "ts-node test-clients/listStream.ts",
+    "start:logs": "ts-node test-clients/getLogs.ts"
   },
   "keywords": [],
   "author": "",

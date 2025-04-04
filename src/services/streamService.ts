@@ -8,7 +8,10 @@ import {
     Resolution,
     FPS,
     Format,
-    Error as ProtoError
+    Error as ProtoError,
+    LogsInfo,
+    LogData,
+    LogLevel
 } from '../proto/twitchy';
 import crypto from 'crypto';
 
@@ -41,6 +44,30 @@ export class StreamService {
         console.log(`[${stage}] Delta: ${delta / 1000000}ms`);
     }
 
+    async getLogs(call: ServerWritableStream<LogsInfo, LogData>): Promise<void> {
+        try {
+            const { level, streamId } = call.request;
+            console.log('Requête reçue pour les logs:', { level, streamId });
+            console.log('Streams autorisés:', Array.from(this.authorizedStreams));
+    
+            for (const id of streamId) {
+                if (!this.authorizedStreams.has(id)) {
+                    console.warn(`Stream ${id} non trouvé ou non autorisé.`);
+                    continue;
+                }
+                const logs = [
+                    { streamId: id, level, ts: Date.now(), log: `Log for stream ${id}` },
+                    { streamId: id, level: LogLevel.error, ts: Date.now(), log: `Error log for stream ${id}` }
+                ];
+                logs.forEach(log => call.write(log));
+            }
+            call.end();
+        } catch (error) {
+            console.error('Erreur dans getLogs:', error);
+            call.emit('error', error);
+        }
+    }
+
     private async processFrame(data: StreamData): Promise<StreamData | null> {
         this.logTimeDelta('RECEIVE', data.ts);
 
@@ -64,6 +91,8 @@ export class StreamService {
         return data;
     }
 
+
+    
     private async broadcastToViewers(data: StreamData): Promise<void> {
         this.logTimeDelta('EMIT', data.ts);
 
@@ -146,6 +175,29 @@ export class StreamService {
             console.log(`Stream ${streamId} actif, pas de timeout`);
             return;
         }
+    async newStream(
+        call: ServerUnaryCall<StreamInfo, StreamValidation>
+    ): Promise<StreamValidation> {
+        const streamId = this.generateStreamId();
+        console.log('Nouveau streamId généré:', streamId);
+    
+        const streamInfo = {
+            ...call.request,
+            streamId: streamId
+        };
+    
+        this.streamInfoMap.set(streamId, streamInfo);
+        this.authorizedStreams.add(streamId);
+    
+        console.log('Streams autorisés après ajout:', Array.from(this.authorizedStreams));
+    
+        return {
+            streamId: streamId,
+            error: ProtoError.error_undefined,
+            video: [call.request.videoquality!],
+            audio: [call.request.audioquality!]
+        };
+    }
 
         this.clearStreamTimeout(streamId);
         

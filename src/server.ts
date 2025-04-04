@@ -35,6 +35,7 @@ function main() {
       console.log('Nouvelle connexion de stream');
       return streamService.sendStream(call);
     },
+    getLogs: (call: any) => streamService.getLogs(call),
     getStream: (call: any) => {
       console.log('Nouveau viewer connecté');
       return streamService.getStream(call);
