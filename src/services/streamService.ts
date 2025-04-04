@@ -14,13 +14,13 @@ import crypto from 'crypto';
 
 export class StreamService {
     private static instance: StreamService;
-    private streamBuffer: StreamData[] = [];
+    private streamBuffers: Map<number, StreamData[]> = new Map();
     private readonly MAX_BUFFER_SIZE = 100;
     private readonly BATCH_SIZE = 100;
     private isStreaming: boolean = false;
-    private frameQueue: StreamData[] = [];
-    private isProcessing = false;
-    private viewers: Set<ServerWritableStream<StreamInfo, StreamData>> = new Set();
+    private frameQueues: Map<number, StreamData[]> = new Map();
+    private processingStreams: Set<number> = new Set();
+    private viewers: Map<number, Set<ServerWritableStream<StreamInfo, StreamData>>> = new Map();
     private authorizedStreams: Set<number> = new Set();
     private streamInfoMap: Map<number, StreamInfo> = new Map();
 
@@ -43,13 +43,19 @@ export class StreamService {
         this.logTimeDelta('RECEIVE', data.ts);
 
         if (data.video.length > 1024 * 1024 * 5) {
-            console.warn('Frame too large, skipping');
+            console.warn(`Frame too large for stream ${data.streamId}, skipping`);
             return null;
         }
 
-        this.streamBuffer.push(data);
-        while (this.streamBuffer.length > this.MAX_BUFFER_SIZE) {
-            this.streamBuffer.shift();
+        // Initialiser le buffer si nécessaire
+        if (!this.streamBuffers.has(data.streamId)) {
+            this.streamBuffers.set(data.streamId, []);
+        }
+        const buffer = this.streamBuffers.get(data.streamId)!;
+
+        buffer.push(data);
+        while (buffer.length > this.MAX_BUFFER_SIZE) {
+            buffer.shift();
         }
 
         this.logTimeDelta('PROCESS', data.ts);
@@ -59,50 +65,58 @@ export class StreamService {
     private async broadcastToViewers(data: StreamData): Promise<void> {
         this.logTimeDelta('EMIT', data.ts);
 
+        const streamViewers = this.viewers.get(data.streamId);
+        if (!streamViewers) return;
+
         const deadViewers = new Set<ServerWritableStream<StreamInfo, StreamData>>();
-        const viewers = [...this.viewers];
+        const viewers = [...streamViewers];
 
         for (let i = 0; i < viewers.length; i += this.BATCH_SIZE) {
             const batch = viewers.slice(i, i + this.BATCH_SIZE);
 
             await Promise.all(batch.map(async (viewer) => {
                 try {
-                    await viewer.write({
-                        ts: data.ts,
-                        audio: data.audio,
-                        video: data.video,
-                        streamId: data.streamId,
-                        streamTitle: data.streamTitle
-                    } as StreamData);
+                    await viewer.write(data);
                 } catch (error) {
-                    console.error('Viewer write error:', error);
+                    console.error(`Viewer write error for stream ${data.streamId}:`, error);
                     deadViewers.add(viewer);
                 }
             }));
         }
 
-        for (const viewer of deadViewers) {
-            this.viewers.delete(viewer);
+        // Nettoyer les viewers morts
+        deadViewers.forEach(viewer => {
+            streamViewers.delete(viewer);
+        });
+
+        // Si plus de viewers, nettoyer la Map
+        if (streamViewers.size === 0) {
+            this.viewers.delete(data.streamId);
         }
     }
 
-    private async processQueue() {
-        if (this.isProcessing) return;
-        this.isProcessing = true;
+    private async processQueue(streamId: number) {
+        if (this.processingStreams.has(streamId)) return;
+        this.processingStreams.add(streamId);
 
-        while (this.frameQueue.length > 0) {
-            const data = this.frameQueue.shift()!;
-            const processedData = await this.processFrame(data);
-            if (processedData) {
-                await this.broadcastToViewers(processedData);
+        try {
+            const queue = this.frameQueues.get(streamId) || [];
+            while (queue.length > 0) {
+                const data = queue.shift()!;
+                const processedData = await this.processFrame(data);
+                if (processedData) {
+                    await this.broadcastToViewers(processedData);
+                }
             }
+        } finally {
+            this.processingStreams.delete(streamId);
         }
-
-        this.isProcessing = false;
     }
 
     private generateStreamId(): number {
-        return crypto.randomInt(1, 2 ** 32);
+        const streamId = crypto.randomInt(1, 2 ** 32);
+        console.log('Stream ID généré:', streamId);
+        return streamId;
     }
 
     private validateQuality(quality: QualityDefinition | undefined): boolean {
@@ -125,44 +139,34 @@ export class StreamService {
     }
 
 
-    async newStream(
-        call: ServerUnaryCall<StreamInfo, StreamValidation>
-    ): Promise<StreamValidation> {
-        const request = call.request;
-        const streamId = this.generateStreamId();
+async newStream(
+  call: ServerUnaryCall<StreamInfo, StreamValidation>
+): Promise<StreamValidation> {
+  console.log('Traitement de la demande de stream:', call.request);
+  
+  // Générer un nouveau streamId, ignorer celui du client
+  const streamId = this.generateStreamId();
+  console.log('Nouveau streamId généré:', streamId);
 
-        const isVideoValid = this.validateQuality(request.videoquality);
-        const isAudioValid = this.validateQuality(request.audioquality);
+  // Créer une nouvelle StreamInfo avec notre streamId
+  const streamInfo = {
+    ...call.request,
+    streamId: streamId  // Remplacer l'ID du client par le nôtre
+  };
+  
+  // Stocker les infos du stream
+  this.streamInfoMap.set(streamId, streamInfo);
+  this.authorizedStreams.add(streamId);
 
-        if (!isVideoValid || !isAudioValid) {
-            return {
-                streamId: 0,
-                error: ProtoError.qualityUnknown,
-                video: [{
-                    format: Format.mp4,
-                    resolution: Resolution.x240p,
-                    fps: FPS.x30,
-                    bitrate: 1000
-                }],
-                audio: [{
-                    format: Format.aac,
-                    resolution: Resolution.res_undefined,
-                    fps: FPS.fps_undefined,
-                    bitrate: 128
-                }]
-            };
-        }
+  console.log('Streams autorisés:', Array.from(this.authorizedStreams));
 
-        this.authorizedStreams.add(streamId);
-        this.streamInfoMap.set(streamId, request);
-
-        return {
-            streamId,
-            error: ProtoError.error_undefined,
-            video: [request.videoquality!],
-            audio: [request.audioquality!]
-        };
-    }
+  return {
+    streamId: streamId,  // Retourner notre ID
+    error: ProtoError.error_undefined,
+    video: [call.request.videoquality!],
+    audio: [call.request.audioquality!]
+  };
+}
 
     async sendStream(call: ServerDuplexStream<StreamData, Ack>): Promise<void> {
         const firstFrame = await new Promise<StreamData>((resolve) => {
@@ -181,12 +185,12 @@ export class StreamService {
 
             call.on('data', async (data: StreamData) => {
                 call.write({
-                    size: this.streamBuffer.length,
+                    size: this.streamBuffers.get(streamId)?.length || 0,
                     error: 0
                 });
 
-                this.frameQueue.push(data);
-                this.processQueue().catch(console.error);
+                this.frameQueues.set(streamId, [...(this.frameQueues.get(streamId) || []), data]);
+                this.processQueue(streamId).catch(console.error);
             });
 
             call.on('end', () => {
@@ -222,35 +226,44 @@ export class StreamService {
     }
 
     async getStream(call: ServerWritableStream<StreamInfo, StreamData>): Promise<void> {
-        try {
-            this.viewers.add(call);
-            this.logViewerCount();
+        const streamId = call.request.streamId;
+        
+        if (!this.authorizedStreams.has(streamId)) {
+            call.emit('error', new Error('Stream not found'));
+            return;
+        }
 
-            for (const frame of this.streamBuffer) {
-                call.write({
-                    ts: frame.ts,
-                    audio: frame.audio,
-                    video: frame.video,
-                    streamId: frame.streamId,
-                    streamTitle: frame.streamTitle
-                } as StreamData);
+        try {
+            // Initialiser le set de viewers si nécessaire
+            if (!this.viewers.has(streamId)) {
+                this.viewers.set(streamId, new Set());
+            }
+            const streamViewers = this.viewers.get(streamId)!;
+            streamViewers.add(call);
+
+            // Envoyer le buffer existant
+            const buffer = this.streamBuffers.get(streamId) || [];
+            for (const frame of buffer) {
+                await call.write(frame);
             }
 
             call.on('end', () => {
-                this.viewers.delete(call);
-                this.logViewerCount();
+                streamViewers.delete(call);
+                if (streamViewers.size === 0) {
+                    this.viewers.delete(streamId);
+                }
                 call.end();
             });
 
-            call.on('close', () => {
-                this.viewers.delete(call);
-                this.logViewerCount();
+            call.on('error', () => {
+                streamViewers.delete(call);
+                if (streamViewers.size === 0) {
+                    this.viewers.delete(streamId);
+                }
             });
 
         } catch (error) {
-            console.error('Stream error:', error);
-            this.viewers.delete(call);
-            this.logViewerCount();
+            console.error(`Stream error for ${streamId}:`, error);
             call.emit('error', error);
         }
     }
