@@ -9,7 +9,7 @@ async function main() {
 
     const request: LogsInfo = {
         level: LogLevel.info,
-        streamId: [4127204080]
+        streamId: [576997671]
     };
 
     const stream = client.getLogs(request);

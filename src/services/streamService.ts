@@ -56,8 +56,8 @@ export class StreamService {
                     continue;
                 }
                 const logs = [
-                    { streamId: id, level, ts: Date.now(), log: `Log for stream ${id}` },
-                    { streamId: id, level: LogLevel.error, ts: Date.now(), log: `Error log for stream ${id}` }
+                    { streamId: id, level, ts: Date.now(), log: `Stream ${id} is active and running smoothly.` },
+                    { streamId: id, level: LogLevel.error, ts: Date.now(), log: `Stream ${id} encountered an error: Connection lost.` }
                 ];
                 logs.forEach(log => call.write(log));
             }
@@ -175,29 +175,6 @@ export class StreamService {
             console.log(`Stream ${streamId} actif, pas de timeout`);
             return;
         }
-    async newStream(
-        call: ServerUnaryCall<StreamInfo, StreamValidation>
-    ): Promise<StreamValidation> {
-        const streamId = this.generateStreamId();
-        console.log('Nouveau streamId généré:', streamId);
-    
-        const streamInfo = {
-            ...call.request,
-            streamId: streamId
-        };
-    
-        this.streamInfoMap.set(streamId, streamInfo);
-        this.authorizedStreams.add(streamId);
-    
-        console.log('Streams autorisés après ajout:', Array.from(this.authorizedStreams));
-    
-        return {
-            streamId: streamId,
-            error: ProtoError.error_undefined,
-            video: [call.request.videoquality!],
-            audio: [call.request.audioquality!]
-        };
-    }
 
         this.clearStreamTimeout(streamId);
         
