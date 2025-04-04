@@ -18,7 +18,3 @@ stream.on('end', () => {
 stream.on('error', (err) => {
   console.error('Erreur:', err);
 });
-
-stream.on('status', (status) => {
-  console.log('Status:', status);
-});

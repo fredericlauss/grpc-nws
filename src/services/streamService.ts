@@ -47,41 +47,6 @@ export class StreamService {
             return null;
         }
 
-<<<<<<< Updated upstream
-  private validateQuality(quality: QualityDefinition | undefined): boolean {
-    // Accepter toutes les qualités pour le test
-    return true;
-  }
-
-  async newStream(
-    call: ServerUnaryCall<StreamInfo, StreamValidation>
-  ): Promise<StreamValidation> {
-    console.log('Traitement de la demande de stream:', call.request);
-    const request = call.request;
-    const streamId = this.generateStreamId();
-
-    // Valider la qualité demandée
-    const isVideoValid = this.validateQuality(request.videoquality);
-    const isAudioValid = this.validateQuality(request.audioquality);
-
-    if (!isVideoValid || !isAudioValid) {
-      return {
-        streamId: 0,
-        error: ProtoError.qualityUnknown,
-        video: [{
-          format: Format.mp4,
-          resolution: Resolution.x240p,
-          fps: FPS.x30,
-          bitrate: 1000
-        }],
-        audio: [{
-          format: Format.aac,
-          resolution: Resolution.res_undefined,
-          fps: FPS.fps_undefined,
-          bitrate: 128
-        }]
-      };
-=======
         this.streamBuffer.push(data);
         while (this.streamBuffer.length > this.MAX_BUFFER_SIZE) {
             this.streamBuffer.shift();
@@ -89,7 +54,6 @@ export class StreamService {
 
         this.logTimeDelta('PROCESS', data.ts);
         return data;
->>>>>>> Stashed changes
     }
 
     private async broadcastToViewers(data: StreamData): Promise<void> {
@@ -98,18 +62,6 @@ export class StreamService {
         const deadViewers = new Set<ServerWritableStream<StreamInfo, StreamData>>();
         const viewers = [...this.viewers];
 
-<<<<<<< Updated upstream
-  async sendStream(call: ServerDuplexStream<StreamData, Ack>): Promise<void> {
-    const firstFrame = await new Promise<StreamData>((resolve) => {
-      call.once('data', resolve);
-    });
-
-    if (!this.authorizedStreams.has(firstFrame.streamId)) {
-      console.error('StreamID non autorisé:', firstFrame.streamId);
-      call.emit('error', new Error('Unauthorized stream ID'));
-      call.end();
-      return;
-=======
         for (let i = 0; i < viewers.length; i += this.BATCH_SIZE) {
             const batch = viewers.slice(i, i + this.BATCH_SIZE);
 
@@ -132,7 +84,6 @@ export class StreamService {
         for (const viewer of deadViewers) {
             this.viewers.delete(viewer);
         }
->>>>>>> Stashed changes
     }
 
     private async processQueue() {
@@ -155,9 +106,7 @@ export class StreamService {
     }
 
     private validateQuality(quality: QualityDefinition | undefined): boolean {
-        if (!quality) return false;
-        return quality.resolution === Resolution.x240p &&
-            quality.fps === FPS.x30;
+        return true;
     }
 
     async listStream(call: ServerWritableStream<StreamInfo, StreamInfo>): Promise<void> {

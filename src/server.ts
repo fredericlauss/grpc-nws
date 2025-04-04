@@ -38,7 +38,8 @@ function main() {
     getStream: (call: any) => {
       console.log('Nouveau viewer connecté');
       return streamService.getStream(call);
-    }
+    },
+    listStream: (call: any) => streamService.listStream(call)
   });
 
   server.bindAsync(
