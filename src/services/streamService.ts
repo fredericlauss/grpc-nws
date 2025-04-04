@@ -175,14 +175,9 @@ export class StreamService {
             return;
         }
 
-        if (this.isStreaming) {
-            call.emit('error', new Error('A stream is already in progress'));
-            call.end();
-            return;
-        }
-
         try {
             this.isStreaming = true;
+            const streamId = firstFrame.streamId;
 
             call.on('data', async (data: StreamData) => {
                 call.write({
@@ -196,23 +191,28 @@ export class StreamService {
 
             call.on('end', () => {
                 this.isStreaming = false;
+                this.authorizedStreams.delete(streamId);
+                console.log(`Stream ${streamId} terminé`);
                 call.end();
             });
 
             call.on('close', () => {
                 this.isStreaming = false;
-                call.end();
+                this.authorizedStreams.delete(streamId);
+                console.log(`Stream ${streamId} fermé`);
             });
 
             call.on('error', (err) => {
                 console.error('Stream error:', err);
                 this.isStreaming = false;
+                this.authorizedStreams.delete(streamId);
             });
 
         } catch (error) {
             console.error('Fatal error:', error);
             call.emit('error', error);
             this.isStreaming = false;
+            this.authorizedStreams.delete(firstFrame.streamId);
         }
     }
 

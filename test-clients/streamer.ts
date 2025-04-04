@@ -20,7 +20,7 @@ async function main() {
       fps: FPS.fps_undefined,
       bitrate: 128
     },
-    streamId: 0 // sera assigné par le serveur
+    streamId: 10 // sera assigné par le serveur
   };
 
   const validation = await new Promise<StreamValidation>((resolve, reject) => {
