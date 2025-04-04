@@ -1,5 +1,5 @@
 import { ServerDuplexStream, ServerWritableStream } from '@grpc/grpc-js';
-import { Ack, StreamData, StreamDataClient, StreamRequest } from '../proto/twitchy';
+import { Ack, StreamData, StreamInfo } from '../proto/twitchy';
 
 export class StreamService {
   private static instance: StreamService;
@@ -9,7 +9,7 @@ export class StreamService {
   private isStreaming: boolean = false;
   private frameQueue: StreamData[] = [];
   private isProcessing = false;
-  private viewers: Set<ServerWritableStream<StreamRequest, StreamDataClient>> = new Set();
+  private viewers: Set<ServerWritableStream<StreamInfo, StreamData>> = new Set();
 
   private constructor() {}
 
@@ -46,7 +46,7 @@ export class StreamService {
   private async broadcastToViewers(data: StreamData): Promise<void> {
     this.logTimeDelta('EMIT', data.ts);
     
-    const deadViewers = new Set<ServerWritableStream<StreamRequest, StreamDataClient>>();
+    const deadViewers = new Set<ServerWritableStream<StreamInfo, StreamData>>();
     const viewers = [...this.viewers];
     
     for (let i = 0; i < viewers.length; i += this.BATCH_SIZE) {
@@ -57,8 +57,10 @@ export class StreamService {
           await viewer.write({
             ts: data.ts,
             audio: data.audio,
-            video: data.video
-          });
+            video: data.video,
+            streamId: data.streamId,
+            streamTitle: data.streamTitle
+          } as StreamData);
         } catch (error) {
           console.error('Viewer write error:', error);
           deadViewers.add(viewer);
@@ -134,7 +136,7 @@ export class StreamService {
     console.log(`[Viewers] Total: ${count}`);
   }
 
-  async getStream(call: ServerWritableStream<StreamRequest, StreamDataClient>): Promise<void> {
+  async getStream(call: ServerWritableStream<StreamInfo, StreamData>): Promise<void> {
     try {
       this.viewers.add(call);
       this.logViewerCount();
@@ -144,8 +146,10 @@ export class StreamService {
         call.write({
           ts: frame.ts,
           audio: frame.audio,
-          video: frame.video
-        });
+          video: frame.video,
+          streamId: frame.streamId,
+          streamTitle: frame.streamTitle
+        } as StreamData);
       }
 
       call.on('end', () => {

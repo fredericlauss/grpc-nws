@@ -13,38 +13,614 @@ import {
   type ClientDuplexStream,
   type ClientOptions,
   type ClientReadableStream,
+  type ClientUnaryCall,
   type handleBidiStreamingCall,
   type handleServerStreamingCall,
+  type handleUnaryCall,
   makeGenericClientConstructor,
   Metadata,
+  type ServiceError,
   type UntypedServiceImplementation,
 } from "@grpc/grpc-js";
 
 export const protobufPackage = "twitchy";
 
+export enum Format {
+  format_undefined = 0,
+  mp4 = 1,
+  avi = 2,
+  aac = 3,
+  UNRECOGNIZED = -1,
+}
+
+export function formatFromJSON(object: any): Format {
+  switch (object) {
+    case 0:
+    case "format_undefined":
+      return Format.format_undefined;
+    case 1:
+    case "mp4":
+      return Format.mp4;
+    case 2:
+    case "avi":
+      return Format.avi;
+    case 3:
+    case "aac":
+      return Format.aac;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return Format.UNRECOGNIZED;
+  }
+}
+
+export function formatToJSON(object: Format): string {
+  switch (object) {
+    case Format.format_undefined:
+      return "format_undefined";
+    case Format.mp4:
+      return "mp4";
+    case Format.avi:
+      return "avi";
+    case Format.aac:
+      return "aac";
+    case Format.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
+export enum Resolution {
+  res_undefined = 0,
+  x240p = 1,
+  x360p = 2,
+  x480p = 3,
+  x720p = 4,
+  x1080p = 5,
+  UNRECOGNIZED = -1,
+}
+
+export function resolutionFromJSON(object: any): Resolution {
+  switch (object) {
+    case 0:
+    case "res_undefined":
+      return Resolution.res_undefined;
+    case 1:
+    case "x240p":
+      return Resolution.x240p;
+    case 2:
+    case "x360p":
+      return Resolution.x360p;
+    case 3:
+    case "x480p":
+      return Resolution.x480p;
+    case 4:
+    case "x720p":
+      return Resolution.x720p;
+    case 5:
+    case "x1080p":
+      return Resolution.x1080p;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return Resolution.UNRECOGNIZED;
+  }
+}
+
+export function resolutionToJSON(object: Resolution): string {
+  switch (object) {
+    case Resolution.res_undefined:
+      return "res_undefined";
+    case Resolution.x240p:
+      return "x240p";
+    case Resolution.x360p:
+      return "x360p";
+    case Resolution.x480p:
+      return "x480p";
+    case Resolution.x720p:
+      return "x720p";
+    case Resolution.x1080p:
+      return "x1080p";
+    case Resolution.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
+export enum FPS {
+  fps_undefined = 0,
+  x5 = 1,
+  x24 = 2,
+  x30 = 3,
+  UNRECOGNIZED = -1,
+}
+
+export function fPSFromJSON(object: any): FPS {
+  switch (object) {
+    case 0:
+    case "fps_undefined":
+      return FPS.fps_undefined;
+    case 1:
+    case "x5":
+      return FPS.x5;
+    case 2:
+    case "x24":
+      return FPS.x24;
+    case 3:
+    case "x30":
+      return FPS.x30;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return FPS.UNRECOGNIZED;
+  }
+}
+
+export function fPSToJSON(object: FPS): string {
+  switch (object) {
+    case FPS.fps_undefined:
+      return "fps_undefined";
+    case FPS.x5:
+      return "x5";
+    case FPS.x24:
+      return "x24";
+    case FPS.x30:
+      return "x30";
+    case FPS.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
+export enum Error {
+  error_undefined = 0,
+  serverFull = 1,
+  serverInternalError = 2,
+  qualityUnknown = 3,
+  UNRECOGNIZED = -1,
+}
+
+export function errorFromJSON(object: any): Error {
+  switch (object) {
+    case 0:
+    case "error_undefined":
+      return Error.error_undefined;
+    case 1:
+    case "serverFull":
+      return Error.serverFull;
+    case 2:
+    case "serverInternalError":
+      return Error.serverInternalError;
+    case 3:
+    case "qualityUnknown":
+      return Error.qualityUnknown;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return Error.UNRECOGNIZED;
+  }
+}
+
+export function errorToJSON(object: Error): string {
+  switch (object) {
+    case Error.error_undefined:
+      return "error_undefined";
+    case Error.serverFull:
+      return "serverFull";
+    case Error.serverInternalError:
+      return "serverInternalError";
+    case Error.qualityUnknown:
+      return "qualityUnknown";
+    case Error.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
+export enum LogLevel {
+  debug = 0,
+  info = 1,
+  warn = 2,
+  error = 3,
+  UNRECOGNIZED = -1,
+}
+
+export function logLevelFromJSON(object: any): LogLevel {
+  switch (object) {
+    case 0:
+    case "debug":
+      return LogLevel.debug;
+    case 1:
+    case "info":
+      return LogLevel.info;
+    case 2:
+    case "warn":
+      return LogLevel.warn;
+    case 3:
+    case "error":
+      return LogLevel.error;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return LogLevel.UNRECOGNIZED;
+  }
+}
+
+export function logLevelToJSON(object: LogLevel): string {
+  switch (object) {
+    case LogLevel.debug:
+      return "debug";
+    case LogLevel.info:
+      return "info";
+    case LogLevel.warn:
+      return "warn";
+    case LogLevel.error:
+      return "error";
+    case LogLevel.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
+export interface StreamInfo {
+  videoquality: QualityDefinition | undefined;
+  audioquality: QualityDefinition | undefined;
+  streamId: number;
+}
+
+export interface QualityDefinition {
+  format: Format;
+  resolution: Resolution;
+  fps: FPS;
+  bitrate: number;
+}
+
+export interface StreamValidation {
+  streamId: number;
+  error: Error;
+  video: QualityDefinition[];
+  audio: QualityDefinition[];
+}
+
 export interface StreamData {
   ts: number;
+  streamId: number;
   audio: Buffer;
   video: Buffer;
+  streamTitle: string;
 }
 
 export interface Ack {
   size: number;
-  error: number;
+  error: Error;
 }
 
-export interface StreamRequest {
-  dummy: number;
+export interface LogsInfo {
+  level: LogLevel;
+  streamId: number[];
 }
 
-export interface StreamDataClient {
+export interface LogData {
+  streamId: number;
+  level: LogLevel;
   ts: number;
-  audio: Buffer;
-  video: Buffer;
+  log: string;
 }
+
+function createBaseStreamInfo(): StreamInfo {
+  return { videoquality: undefined, audioquality: undefined, streamId: 0 };
+}
+
+export const StreamInfo: MessageFns<StreamInfo> = {
+  encode(message: StreamInfo, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.videoquality !== undefined) {
+      QualityDefinition.encode(message.videoquality, writer.uint32(10).fork()).join();
+    }
+    if (message.audioquality !== undefined) {
+      QualityDefinition.encode(message.audioquality, writer.uint32(18).fork()).join();
+    }
+    if (message.streamId !== 0) {
+      writer.uint32(24).uint32(message.streamId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): StreamInfo {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseStreamInfo();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.videoquality = QualityDefinition.decode(reader, reader.uint32());
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.audioquality = QualityDefinition.decode(reader, reader.uint32());
+          continue;
+        }
+        case 3: {
+          if (tag !== 24) {
+            break;
+          }
+
+          message.streamId = reader.uint32();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): StreamInfo {
+    return {
+      videoquality: isSet(object.videoquality) ? QualityDefinition.fromJSON(object.videoquality) : undefined,
+      audioquality: isSet(object.audioquality) ? QualityDefinition.fromJSON(object.audioquality) : undefined,
+      streamId: isSet(object.streamId) ? globalThis.Number(object.streamId) : 0,
+    };
+  },
+
+  toJSON(message: StreamInfo): unknown {
+    const obj: any = {};
+    if (message.videoquality !== undefined) {
+      obj.videoquality = QualityDefinition.toJSON(message.videoquality);
+    }
+    if (message.audioquality !== undefined) {
+      obj.audioquality = QualityDefinition.toJSON(message.audioquality);
+    }
+    if (message.streamId !== 0) {
+      obj.streamId = Math.round(message.streamId);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<StreamInfo>, I>>(base?: I): StreamInfo {
+    return StreamInfo.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<StreamInfo>, I>>(object: I): StreamInfo {
+    const message = createBaseStreamInfo();
+    message.videoquality = (object.videoquality !== undefined && object.videoquality !== null)
+      ? QualityDefinition.fromPartial(object.videoquality)
+      : undefined;
+    message.audioquality = (object.audioquality !== undefined && object.audioquality !== null)
+      ? QualityDefinition.fromPartial(object.audioquality)
+      : undefined;
+    message.streamId = object.streamId ?? 0;
+    return message;
+  },
+};
+
+function createBaseQualityDefinition(): QualityDefinition {
+  return { format: 0, resolution: 0, fps: 0, bitrate: 0 };
+}
+
+export const QualityDefinition: MessageFns<QualityDefinition> = {
+  encode(message: QualityDefinition, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.format !== 0) {
+      writer.uint32(8).int32(message.format);
+    }
+    if (message.resolution !== 0) {
+      writer.uint32(16).int32(message.resolution);
+    }
+    if (message.fps !== 0) {
+      writer.uint32(24).int32(message.fps);
+    }
+    if (message.bitrate !== 0) {
+      writer.uint32(32).int32(message.bitrate);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): QualityDefinition {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQualityDefinition();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.format = reader.int32() as any;
+          continue;
+        }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.resolution = reader.int32() as any;
+          continue;
+        }
+        case 3: {
+          if (tag !== 24) {
+            break;
+          }
+
+          message.fps = reader.int32() as any;
+          continue;
+        }
+        case 4: {
+          if (tag !== 32) {
+            break;
+          }
+
+          message.bitrate = reader.int32();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QualityDefinition {
+    return {
+      format: isSet(object.format) ? formatFromJSON(object.format) : 0,
+      resolution: isSet(object.resolution) ? resolutionFromJSON(object.resolution) : 0,
+      fps: isSet(object.fps) ? fPSFromJSON(object.fps) : 0,
+      bitrate: isSet(object.bitrate) ? globalThis.Number(object.bitrate) : 0,
+    };
+  },
+
+  toJSON(message: QualityDefinition): unknown {
+    const obj: any = {};
+    if (message.format !== 0) {
+      obj.format = formatToJSON(message.format);
+    }
+    if (message.resolution !== 0) {
+      obj.resolution = resolutionToJSON(message.resolution);
+    }
+    if (message.fps !== 0) {
+      obj.fps = fPSToJSON(message.fps);
+    }
+    if (message.bitrate !== 0) {
+      obj.bitrate = Math.round(message.bitrate);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<QualityDefinition>, I>>(base?: I): QualityDefinition {
+    return QualityDefinition.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<QualityDefinition>, I>>(object: I): QualityDefinition {
+    const message = createBaseQualityDefinition();
+    message.format = object.format ?? 0;
+    message.resolution = object.resolution ?? 0;
+    message.fps = object.fps ?? 0;
+    message.bitrate = object.bitrate ?? 0;
+    return message;
+  },
+};
+
+function createBaseStreamValidation(): StreamValidation {
+  return { streamId: 0, error: 0, video: [], audio: [] };
+}
+
+export const StreamValidation: MessageFns<StreamValidation> = {
+  encode(message: StreamValidation, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.streamId !== 0) {
+      writer.uint32(8).uint32(message.streamId);
+    }
+    if (message.error !== 0) {
+      writer.uint32(16).int32(message.error);
+    }
+    for (const v of message.video) {
+      QualityDefinition.encode(v!, writer.uint32(26).fork()).join();
+    }
+    for (const v of message.audio) {
+      QualityDefinition.encode(v!, writer.uint32(34).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): StreamValidation {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseStreamValidation();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.streamId = reader.uint32();
+          continue;
+        }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.error = reader.int32() as any;
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.video.push(QualityDefinition.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.audio.push(QualityDefinition.decode(reader, reader.uint32()));
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): StreamValidation {
+    return {
+      streamId: isSet(object.streamId) ? globalThis.Number(object.streamId) : 0,
+      error: isSet(object.error) ? errorFromJSON(object.error) : 0,
+      video: globalThis.Array.isArray(object?.video) ? object.video.map((e: any) => QualityDefinition.fromJSON(e)) : [],
+      audio: globalThis.Array.isArray(object?.audio) ? object.audio.map((e: any) => QualityDefinition.fromJSON(e)) : [],
+    };
+  },
+
+  toJSON(message: StreamValidation): unknown {
+    const obj: any = {};
+    if (message.streamId !== 0) {
+      obj.streamId = Math.round(message.streamId);
+    }
+    if (message.error !== 0) {
+      obj.error = errorToJSON(message.error);
+    }
+    if (message.video?.length) {
+      obj.video = message.video.map((e) => QualityDefinition.toJSON(e));
+    }
+    if (message.audio?.length) {
+      obj.audio = message.audio.map((e) => QualityDefinition.toJSON(e));
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<StreamValidation>, I>>(base?: I): StreamValidation {
+    return StreamValidation.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<StreamValidation>, I>>(object: I): StreamValidation {
+    const message = createBaseStreamValidation();
+    message.streamId = object.streamId ?? 0;
+    message.error = object.error ?? 0;
+    message.video = object.video?.map((e) => QualityDefinition.fromPartial(e)) || [];
+    message.audio = object.audio?.map((e) => QualityDefinition.fromPartial(e)) || [];
+    return message;
+  },
+};
 
 function createBaseStreamData(): StreamData {
-  return { ts: 0, audio: Buffer.alloc(0), video: Buffer.alloc(0) };
+  return { ts: 0, streamId: 0, audio: Buffer.alloc(0), video: Buffer.alloc(0), streamTitle: "" };
 }
 
 export const StreamData: MessageFns<StreamData> = {
@@ -52,11 +628,17 @@ export const StreamData: MessageFns<StreamData> = {
     if (message.ts !== 0) {
       writer.uint32(8).uint64(message.ts);
     }
+    if (message.streamId !== 0) {
+      writer.uint32(16).uint32(message.streamId);
+    }
     if (message.audio.length !== 0) {
-      writer.uint32(18).bytes(message.audio);
+      writer.uint32(26).bytes(message.audio);
     }
     if (message.video.length !== 0) {
-      writer.uint32(26).bytes(message.video);
+      writer.uint32(34).bytes(message.video);
+    }
+    if (message.streamTitle !== "") {
+      writer.uint32(42).string(message.streamTitle);
     }
     return writer;
   },
@@ -77,11 +659,11 @@ export const StreamData: MessageFns<StreamData> = {
           continue;
         }
         case 2: {
-          if (tag !== 18) {
+          if (tag !== 16) {
             break;
           }
 
-          message.audio = Buffer.from(reader.bytes());
+          message.streamId = reader.uint32();
           continue;
         }
         case 3: {
@@ -89,7 +671,23 @@ export const StreamData: MessageFns<StreamData> = {
             break;
           }
 
+          message.audio = Buffer.from(reader.bytes());
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
           message.video = Buffer.from(reader.bytes());
+          continue;
+        }
+        case 5: {
+          if (tag !== 42) {
+            break;
+          }
+
+          message.streamTitle = reader.string();
           continue;
         }
       }
@@ -104,8 +702,10 @@ export const StreamData: MessageFns<StreamData> = {
   fromJSON(object: any): StreamData {
     return {
       ts: isSet(object.ts) ? globalThis.Number(object.ts) : 0,
+      streamId: isSet(object.streamId) ? globalThis.Number(object.streamId) : 0,
       audio: isSet(object.audio) ? Buffer.from(bytesFromBase64(object.audio)) : Buffer.alloc(0),
       video: isSet(object.video) ? Buffer.from(bytesFromBase64(object.video)) : Buffer.alloc(0),
+      streamTitle: isSet(object.streamTitle) ? globalThis.String(object.streamTitle) : "",
     };
   },
 
@@ -114,11 +714,17 @@ export const StreamData: MessageFns<StreamData> = {
     if (message.ts !== 0) {
       obj.ts = Math.round(message.ts);
     }
+    if (message.streamId !== 0) {
+      obj.streamId = Math.round(message.streamId);
+    }
     if (message.audio.length !== 0) {
       obj.audio = base64FromBytes(message.audio);
     }
     if (message.video.length !== 0) {
       obj.video = base64FromBytes(message.video);
+    }
+    if (message.streamTitle !== "") {
+      obj.streamTitle = message.streamTitle;
     }
     return obj;
   },
@@ -129,8 +735,10 @@ export const StreamData: MessageFns<StreamData> = {
   fromPartial<I extends Exact<DeepPartial<StreamData>, I>>(object: I): StreamData {
     const message = createBaseStreamData();
     message.ts = object.ts ?? 0;
+    message.streamId = object.streamId ?? 0;
     message.audio = object.audio ?? Buffer.alloc(0);
     message.video = object.video ?? Buffer.alloc(0);
+    message.streamTitle = object.streamTitle ?? "";
     return message;
   },
 };
@@ -170,7 +778,7 @@ export const Ack: MessageFns<Ack> = {
             break;
           }
 
-          message.error = reader.int32();
+          message.error = reader.int32() as any;
           continue;
         }
       }
@@ -185,7 +793,7 @@ export const Ack: MessageFns<Ack> = {
   fromJSON(object: any): Ack {
     return {
       size: isSet(object.size) ? globalThis.Number(object.size) : 0,
-      error: isSet(object.error) ? globalThis.Number(object.error) : 0,
+      error: isSet(object.error) ? errorFromJSON(object.error) : 0,
     };
   },
 
@@ -195,7 +803,7 @@ export const Ack: MessageFns<Ack> = {
       obj.size = Math.round(message.size);
     }
     if (message.error !== 0) {
-      obj.error = Math.round(message.error);
+      obj.error = errorToJSON(message.error);
     }
     return obj;
   },
@@ -211,22 +819,27 @@ export const Ack: MessageFns<Ack> = {
   },
 };
 
-function createBaseStreamRequest(): StreamRequest {
-  return { dummy: 0 };
+function createBaseLogsInfo(): LogsInfo {
+  return { level: 0, streamId: [] };
 }
 
-export const StreamRequest: MessageFns<StreamRequest> = {
-  encode(message: StreamRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.dummy !== 0) {
-      writer.uint32(8).int64(message.dummy);
+export const LogsInfo: MessageFns<LogsInfo> = {
+  encode(message: LogsInfo, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.level !== 0) {
+      writer.uint32(8).int32(message.level);
     }
+    writer.uint32(18).fork();
+    for (const v of message.streamId) {
+      writer.uint32(v);
+    }
+    writer.join();
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): StreamRequest {
+  decode(input: BinaryReader | Uint8Array, length?: number): LogsInfo {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseStreamRequest();
+    const message = createBaseLogsInfo();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -235,8 +848,26 @@ export const StreamRequest: MessageFns<StreamRequest> = {
             break;
           }
 
-          message.dummy = longToNumber(reader.int64());
+          message.level = reader.int32() as any;
           continue;
+        }
+        case 2: {
+          if (tag === 16) {
+            message.streamId.push(reader.uint32());
+
+            continue;
+          }
+
+          if (tag === 18) {
+            const end2 = reader.uint32() + reader.pos;
+            while (reader.pos < end2) {
+              message.streamId.push(reader.uint32());
+            }
+
+            continue;
+          }
+
+          break;
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
@@ -247,75 +878,93 @@ export const StreamRequest: MessageFns<StreamRequest> = {
     return message;
   },
 
-  fromJSON(object: any): StreamRequest {
-    return { dummy: isSet(object.dummy) ? globalThis.Number(object.dummy) : 0 };
+  fromJSON(object: any): LogsInfo {
+    return {
+      level: isSet(object.level) ? logLevelFromJSON(object.level) : 0,
+      streamId: globalThis.Array.isArray(object?.streamId) ? object.streamId.map((e: any) => globalThis.Number(e)) : [],
+    };
   },
 
-  toJSON(message: StreamRequest): unknown {
+  toJSON(message: LogsInfo): unknown {
     const obj: any = {};
-    if (message.dummy !== 0) {
-      obj.dummy = Math.round(message.dummy);
+    if (message.level !== 0) {
+      obj.level = logLevelToJSON(message.level);
+    }
+    if (message.streamId?.length) {
+      obj.streamId = message.streamId.map((e) => Math.round(e));
     }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<StreamRequest>, I>>(base?: I): StreamRequest {
-    return StreamRequest.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<LogsInfo>, I>>(base?: I): LogsInfo {
+    return LogsInfo.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<StreamRequest>, I>>(object: I): StreamRequest {
-    const message = createBaseStreamRequest();
-    message.dummy = object.dummy ?? 0;
+  fromPartial<I extends Exact<DeepPartial<LogsInfo>, I>>(object: I): LogsInfo {
+    const message = createBaseLogsInfo();
+    message.level = object.level ?? 0;
+    message.streamId = object.streamId?.map((e) => e) || [];
     return message;
   },
 };
 
-function createBaseStreamDataClient(): StreamDataClient {
-  return { ts: 0, audio: Buffer.alloc(0), video: Buffer.alloc(0) };
+function createBaseLogData(): LogData {
+  return { streamId: 0, level: 0, ts: 0, log: "" };
 }
 
-export const StreamDataClient: MessageFns<StreamDataClient> = {
-  encode(message: StreamDataClient, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+export const LogData: MessageFns<LogData> = {
+  encode(message: LogData, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.streamId !== 0) {
+      writer.uint32(8).uint32(message.streamId);
+    }
+    if (message.level !== 0) {
+      writer.uint32(16).int32(message.level);
+    }
     if (message.ts !== 0) {
-      writer.uint32(8).uint64(message.ts);
+      writer.uint32(24).uint64(message.ts);
     }
-    if (message.audio.length !== 0) {
-      writer.uint32(18).bytes(message.audio);
-    }
-    if (message.video.length !== 0) {
-      writer.uint32(26).bytes(message.video);
+    if (message.log !== "") {
+      writer.uint32(34).string(message.log);
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): StreamDataClient {
+  decode(input: BinaryReader | Uint8Array, length?: number): LogData {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseStreamDataClient();
+    const message = createBaseLogData();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 8) {
+            break;
+          }
+
+          message.streamId = reader.uint32();
+          continue;
+        }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.level = reader.int32() as any;
+          continue;
+        }
+        case 3: {
+          if (tag !== 24) {
             break;
           }
 
           message.ts = longToNumber(reader.uint64());
           continue;
         }
-        case 2: {
-          if (tag !== 18) {
+        case 4: {
+          if (tag !== 34) {
             break;
           }
 
-          message.audio = Buffer.from(reader.bytes());
-          continue;
-        }
-        case 3: {
-          if (tag !== 26) {
-            break;
-          }
-
-          message.video = Buffer.from(reader.bytes());
+          message.log = reader.string();
           continue;
         }
       }
@@ -327,42 +976,56 @@ export const StreamDataClient: MessageFns<StreamDataClient> = {
     return message;
   },
 
-  fromJSON(object: any): StreamDataClient {
+  fromJSON(object: any): LogData {
     return {
+      streamId: isSet(object.streamId) ? globalThis.Number(object.streamId) : 0,
+      level: isSet(object.level) ? logLevelFromJSON(object.level) : 0,
       ts: isSet(object.ts) ? globalThis.Number(object.ts) : 0,
-      audio: isSet(object.audio) ? Buffer.from(bytesFromBase64(object.audio)) : Buffer.alloc(0),
-      video: isSet(object.video) ? Buffer.from(bytesFromBase64(object.video)) : Buffer.alloc(0),
+      log: isSet(object.log) ? globalThis.String(object.log) : "",
     };
   },
 
-  toJSON(message: StreamDataClient): unknown {
+  toJSON(message: LogData): unknown {
     const obj: any = {};
+    if (message.streamId !== 0) {
+      obj.streamId = Math.round(message.streamId);
+    }
+    if (message.level !== 0) {
+      obj.level = logLevelToJSON(message.level);
+    }
     if (message.ts !== 0) {
       obj.ts = Math.round(message.ts);
     }
-    if (message.audio.length !== 0) {
-      obj.audio = base64FromBytes(message.audio);
-    }
-    if (message.video.length !== 0) {
-      obj.video = base64FromBytes(message.video);
+    if (message.log !== "") {
+      obj.log = message.log;
     }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<StreamDataClient>, I>>(base?: I): StreamDataClient {
-    return StreamDataClient.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<LogData>, I>>(base?: I): LogData {
+    return LogData.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<StreamDataClient>, I>>(object: I): StreamDataClient {
-    const message = createBaseStreamDataClient();
+  fromPartial<I extends Exact<DeepPartial<LogData>, I>>(object: I): LogData {
+    const message = createBaseLogData();
+    message.streamId = object.streamId ?? 0;
+    message.level = object.level ?? 0;
     message.ts = object.ts ?? 0;
-    message.audio = object.audio ?? Buffer.alloc(0);
-    message.video = object.video ?? Buffer.alloc(0);
+    message.log = object.log ?? "";
     return message;
   },
 };
 
 export type TwitchyService = typeof TwitchyService;
 export const TwitchyService = {
+  newStream: {
+    path: "/twitchy.Twitchy/NewStream",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: StreamInfo) => Buffer.from(StreamInfo.encode(value).finish()),
+    requestDeserialize: (value: Buffer) => StreamInfo.decode(value),
+    responseSerialize: (value: StreamValidation) => Buffer.from(StreamValidation.encode(value).finish()),
+    responseDeserialize: (value: Buffer) => StreamValidation.decode(value),
+  },
   sendStream: {
     path: "/twitchy.Twitchy/SendStream",
     requestStream: true,
@@ -372,32 +1035,72 @@ export const TwitchyService = {
     responseSerialize: (value: Ack) => Buffer.from(Ack.encode(value).finish()),
     responseDeserialize: (value: Buffer) => Ack.decode(value),
   },
+  listStream: {
+    path: "/twitchy.Twitchy/ListStream",
+    requestStream: false,
+    responseStream: true,
+    requestSerialize: (value: StreamInfo) => Buffer.from(StreamInfo.encode(value).finish()),
+    requestDeserialize: (value: Buffer) => StreamInfo.decode(value),
+    responseSerialize: (value: StreamInfo) => Buffer.from(StreamInfo.encode(value).finish()),
+    responseDeserialize: (value: Buffer) => StreamInfo.decode(value),
+  },
   getStream: {
     path: "/twitchy.Twitchy/GetStream",
     requestStream: false,
     responseStream: true,
-    requestSerialize: (value: StreamRequest) => Buffer.from(StreamRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer) => StreamRequest.decode(value),
-    responseSerialize: (value: StreamDataClient) => Buffer.from(StreamDataClient.encode(value).finish()),
-    responseDeserialize: (value: Buffer) => StreamDataClient.decode(value),
+    requestSerialize: (value: StreamInfo) => Buffer.from(StreamInfo.encode(value).finish()),
+    requestDeserialize: (value: Buffer) => StreamInfo.decode(value),
+    responseSerialize: (value: StreamData) => Buffer.from(StreamData.encode(value).finish()),
+    responseDeserialize: (value: Buffer) => StreamData.decode(value),
+  },
+  getLogs: {
+    path: "/twitchy.Twitchy/GetLogs",
+    requestStream: false,
+    responseStream: true,
+    requestSerialize: (value: LogsInfo) => Buffer.from(LogsInfo.encode(value).finish()),
+    requestDeserialize: (value: Buffer) => LogsInfo.decode(value),
+    responseSerialize: (value: LogData) => Buffer.from(LogData.encode(value).finish()),
+    responseDeserialize: (value: Buffer) => LogData.decode(value),
   },
 } as const;
 
 export interface TwitchyServer extends UntypedServiceImplementation {
+  newStream: handleUnaryCall<StreamInfo, StreamValidation>;
   sendStream: handleBidiStreamingCall<StreamData, Ack>;
-  getStream: handleServerStreamingCall<StreamRequest, StreamDataClient>;
+  listStream: handleServerStreamingCall<StreamInfo, StreamInfo>;
+  getStream: handleServerStreamingCall<StreamInfo, StreamData>;
+  getLogs: handleServerStreamingCall<LogsInfo, LogData>;
 }
 
 export interface TwitchyClient extends Client {
+  newStream(
+    request: StreamInfo,
+    callback: (error: ServiceError | null, response: StreamValidation) => void,
+  ): ClientUnaryCall;
+  newStream(
+    request: StreamInfo,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: StreamValidation) => void,
+  ): ClientUnaryCall;
+  newStream(
+    request: StreamInfo,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: StreamValidation) => void,
+  ): ClientUnaryCall;
   sendStream(): ClientDuplexStream<StreamData, Ack>;
   sendStream(options: Partial<CallOptions>): ClientDuplexStream<StreamData, Ack>;
   sendStream(metadata: Metadata, options?: Partial<CallOptions>): ClientDuplexStream<StreamData, Ack>;
-  getStream(request: StreamRequest, options?: Partial<CallOptions>): ClientReadableStream<StreamDataClient>;
-  getStream(
-    request: StreamRequest,
+  listStream(request: StreamInfo, options?: Partial<CallOptions>): ClientReadableStream<StreamInfo>;
+  listStream(
+    request: StreamInfo,
     metadata?: Metadata,
     options?: Partial<CallOptions>,
-  ): ClientReadableStream<StreamDataClient>;
+  ): ClientReadableStream<StreamInfo>;
+  getStream(request: StreamInfo, options?: Partial<CallOptions>): ClientReadableStream<StreamData>;
+  getStream(request: StreamInfo, metadata?: Metadata, options?: Partial<CallOptions>): ClientReadableStream<StreamData>;
+  getLogs(request: LogsInfo, options?: Partial<CallOptions>): ClientReadableStream<LogData>;
+  getLogs(request: LogsInfo, metadata?: Metadata, options?: Partial<CallOptions>): ClientReadableStream<LogData>;
 }
 
 export const TwitchyClient = makeGenericClientConstructor(TwitchyService, "twitchy.Twitchy") as unknown as {

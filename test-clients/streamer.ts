@@ -1,6 +1,5 @@
 import * as grpc from '@grpc/grpc-js';
-import { TwitchyClient } from '../src/proto/twitchy';
-import { StreamData } from '../src/proto/twitchy';
+import { TwitchyClient, StreamData } from '../src/proto/twitchy';
 
 async function main() {
   const client = new TwitchyClient(
@@ -14,8 +13,10 @@ async function main() {
   const interval = setInterval(() => {
     const frame: StreamData = {
       ts: Date.now(),
+      streamId: frameCount,
       audio: Buffer.from(`Audio frame ${frameCount}`),
       video: Buffer.from(`Video frame ${frameCount}`),
+      streamTitle: 'Test Stream'
     };
 
     stream.write(frame);
