@@ -1,5 +1,5 @@
 import * as grpc from '@grpc/grpc-js';
-import { TwitchyClient, StreamData } from '../src/proto/twitchy';
+import { TwitchyClient, StreamData, StreamInfo, StreamValidation, QualityDefinition, Resolution, FPS, Format } from '../src/proto/twitchy';
 
 async function main() {
   const client = new TwitchyClient(
@@ -7,13 +7,47 @@ async function main() {
     grpc.credentials.createInsecure()
   );
 
-  const stream = client.sendStream();
+  const streamRequest: StreamInfo = {
+    videoquality: {
+      format: Format.mp4,
+      resolution: Resolution.x240p,
+      fps: FPS.x30,
+      bitrate: 1000
+    },
+    audioquality: {
+      format: Format.aac,
+      resolution: Resolution.res_undefined,
+      fps: FPS.fps_undefined,
+      bitrate: 128
+    },
+    streamId: 0 // sera assigné par le serveur
+  };
 
+  const validation = await new Promise<StreamValidation>((resolve, reject) => {
+    client.newStream(streamRequest, (error, response) => {
+      if (error) {
+        console.error('Erreur lors de la demande:', error);
+        reject(error);
+      } else {
+        resolve(response);
+      }
+    });
+  });
+
+  if (validation.error !== 0) {
+    console.error('Stream non autorisé:', validation);
+    return;
+  }
+
+
+  // 2. Démarrer le stream avec l'ID reçu
+  const stream = client.sendStream();
   let frameCount = 0;
+
   const interval = setInterval(() => {
     const frame: StreamData = {
       ts: Date.now(),
-      streamId: frameCount,
+      streamId: validation.streamId, // Utiliser l'ID reçu
       audio: Buffer.from(`Audio frame ${frameCount}`),
       video: Buffer.from(`Video frame ${frameCount}`),
       streamTitle: 'Test Stream'
@@ -40,4 +74,7 @@ async function main() {
   });
 }
 
-main().catch(console.error); 
+main().catch(error => {
+  console.error('Erreur fatale:', error);
+  process.exit(1);
+}); 

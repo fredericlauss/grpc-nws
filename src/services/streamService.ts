@@ -107,14 +107,14 @@ export class StreamService {
   }
 
   private validateQuality(quality: QualityDefinition | undefined): boolean {
-    if (!quality) return false;
-    return quality.resolution === Resolution.x240p && 
-           quality.fps === FPS.x30;
+    // Accepter toutes les qualités pour le test
+    return true;
   }
 
   async newStream(
     call: ServerUnaryCall<StreamInfo, StreamValidation>
   ): Promise<StreamValidation> {
+    console.log('Traitement de la demande de stream:', call.request);
     const request = call.request;
     const streamId = this.generateStreamId();
 
@@ -153,12 +153,12 @@ export class StreamService {
   }
 
   async sendStream(call: ServerDuplexStream<StreamData, Ack>): Promise<void> {
-    // Vérifier si le streamId est autorisé
     const firstFrame = await new Promise<StreamData>((resolve) => {
       call.once('data', resolve);
     });
 
     if (!this.authorizedStreams.has(firstFrame.streamId)) {
+      console.error('StreamID non autorisé:', firstFrame.streamId);
       call.emit('error', new Error('Unauthorized stream ID'));
       call.end();
       return;

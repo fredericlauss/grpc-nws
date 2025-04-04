@@ -20,8 +20,25 @@ function main() {
   const streamService = StreamService.getInstance();
   
   server.addService(proto.Twitchy.service, {
-    sendStream: (call: any) => streamService.sendStream(call),
-    getStream: (call: any) => streamService.getStream(call)
+    newStream: async (call: any, callback: any) => {
+      console.log('Nouvelle demande de stream reçue');
+      try {
+        const response = await streamService.newStream(call);
+        console.log('Envoi de la réponse:', response);
+        callback(null, response);
+      } catch (error) {
+        console.error('Erreur newStream:', error);
+        callback(error);
+      }
+    },
+    sendStream: (call: any) => {
+      console.log('Nouvelle connexion de stream');
+      return streamService.sendStream(call);
+    },
+    getStream: (call: any) => {
+      console.log('Nouveau viewer connecté');
+      return streamService.getStream(call);
+    }
   });
 
   server.bindAsync(
