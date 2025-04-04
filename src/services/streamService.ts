@@ -1,5 +1,16 @@
-import { ServerDuplexStream, ServerWritableStream } from '@grpc/grpc-js';
-import { Ack, StreamData, StreamInfo } from '../proto/twitchy';
+import { ServerDuplexStream, ServerWritableStream, ServerUnaryCall } from '@grpc/grpc-js';
+import { 
+  Ack, 
+  StreamData, 
+  StreamInfo, 
+  StreamValidation, 
+  QualityDefinition, 
+  Resolution, 
+  FPS, 
+  Format,
+  Error as ProtoError
+} from '../proto/twitchy';
+import crypto from 'crypto';
 
 export class StreamService {
   private static instance: StreamService;
@@ -10,6 +21,7 @@ export class StreamService {
   private frameQueue: StreamData[] = [];
   private isProcessing = false;
   private viewers: Set<ServerWritableStream<StreamInfo, StreamData>> = new Set();
+  private authorizedStreams: Set<number> = new Set();
 
   private constructor() {}
 
@@ -89,7 +101,69 @@ export class StreamService {
     this.isProcessing = false;
   }
 
+  private generateStreamId(): number {
+    // Génère un nombre entre 1 et 2^32-1
+    return crypto.randomInt(1, 2**32);
+  }
+
+  private validateQuality(quality: QualityDefinition | undefined): boolean {
+    if (!quality) return false;
+    return quality.resolution === Resolution.x240p && 
+           quality.fps === FPS.x30;
+  }
+
+  async newStream(
+    call: ServerUnaryCall<StreamInfo, StreamValidation>
+  ): Promise<StreamValidation> {
+    const request = call.request;
+    const streamId = this.generateStreamId();
+
+    // Valider la qualité demandée
+    const isVideoValid = this.validateQuality(request.videoquality);
+    const isAudioValid = this.validateQuality(request.audioquality);
+
+    if (!isVideoValid || !isAudioValid) {
+      return {
+        streamId: 0,
+        error: ProtoError.qualityUnknown,
+        video: [{
+          format: Format.mp4,
+          resolution: Resolution.x240p,
+          fps: FPS.x30,
+          bitrate: 1000
+        }],
+        audio: [{
+          format: Format.aac,
+          resolution: Resolution.res_undefined,
+          fps: FPS.fps_undefined,
+          bitrate: 128
+        }]
+      };
+    }
+
+    // Autoriser le streamId
+    this.authorizedStreams.add(streamId);
+
+    return {
+      streamId,
+      error: ProtoError.error_undefined,
+      video: [request.videoquality!],
+      audio: [request.audioquality!]
+    };
+  }
+
   async sendStream(call: ServerDuplexStream<StreamData, Ack>): Promise<void> {
+    // Vérifier si le streamId est autorisé
+    const firstFrame = await new Promise<StreamData>((resolve) => {
+      call.once('data', resolve);
+    });
+
+    if (!this.authorizedStreams.has(firstFrame.streamId)) {
+      call.emit('error', new Error('Unauthorized stream ID'));
+      call.end();
+      return;
+    }
+
     if (this.isStreaming) {
       call.emit('error', new Error('A stream is already in progress'));
       call.end();
