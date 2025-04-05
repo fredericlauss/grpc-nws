@@ -1,0 +1,97 @@
+syntax = "proto3";
+
+option go_package = "github.com/protocolbuffers/protobuf/examples/go/tutorialpb";
+
+package twitchy;
+
+service Twitchy {
+  rpc NewStream (StreamInfo) returns (StreamValidation) {}
+  rpc SendStream (stream StreamData) returns (stream Ack) {}
+  rpc ListStream (StreamInfo) returns (stream StreamInfo) {}
+  rpc GetStream (StreamInfo) returns (stream StreamData) {}
+
+  rpc GetLogs (LogsInfo) returns (stream LogData) {}
+}
+
+message StreamInfo {
+  QualityDefinition videoquality = 1;
+  QualityDefinition audioquality = 2;
+  uint32 streamId = 3;
+}
+
+message QualityDefinition {
+  Format format = 1;
+  Resolution resolution = 2;
+  FPS fps = 3;
+  int32 bitrate = 4;
+}
+
+enum Format {
+  format_undefined = 0;
+  mp4 = 1;
+  avi = 2;
+  aac = 3;
+}
+
+enum Resolution {
+  res_undefined = 0;
+  x240p = 1;
+  x360p = 2;
+  x480p = 3;
+  x720p = 4;
+  x1080p = 5;
+}
+
+enum FPS {
+  fps_undefined = 0;
+  x5 = 1;
+  x24 = 2;
+  x30 = 3;
+}
+
+message StreamValidation {
+  uint32 streamId = 1;
+  Error error = 2;
+  repeated QualityDefinition video = 3;
+  repeated QualityDefinition audio = 4;
+}
+
+enum Error {
+  error_undefined = 0;
+  serverFull = 1;
+  serverInternalError = 2;
+  qualityUnknown = 3;
+
+}
+
+message StreamData {
+  uint64 ts = 1;
+  uint32 streamId = 2;
+  bytes audio = 3;
+  bytes video = 4;
+  string streamTitle = 5;
+}
+
+message Ack {
+  uint32 size = 1;
+  Error error = 2;
+}
+
+message LogsInfo {
+  LogLevel level = 1;
+  repeated uint32 streamId = 2;
+}
+
+enum LogLevel {
+  debug = 0;
+  info = 1;
+  warn = 2;
+  error = 3;
+}
+
+message LogData {
+  uint32 streamId = 1;
+  LogLevel level = 2;
+  uint64 ts = 3;
+  string log = 4;
+}
